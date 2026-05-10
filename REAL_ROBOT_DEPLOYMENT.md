@@ -1,55 +1,69 @@
-# Real Robot Deployment Runbook
+# 실로봇 배포 및 실행 가이드
 
-This document describes how to deploy and run the current three-workspace
-platooning system on the real leader robot, follower robot, and host PC.
+이 문서는 현재 구성된 3개 워크스페이스를 실제 리더 로봇, 팔로워 로봇,
+호스트 PC에 각각 넣고 플래투닝 시스템을 실행하는 절차를 정리한 문서이다.
 
-## Workspaces
+## 워크스페이스 구성
 
-| Role | Machine | Workspace | Repository |
+| 역할 | 실행 장비 | 워크스페이스 | GitHub 저장소 |
 | --- | --- | --- | --- |
-| Leader robot | TurtleBot3 Manipulation robot | `~/turtlebot3_ws` | `https://github.com/KweonTJ/3D_pereception_Based_Mobile_Manipulator-Autonomous_Navigation_System.git` |
-| Follower robot | Platooning follower robot | `~/Turtlebot3_Platooning` | `https://github.com/KweonTJ/Turtlebot3_Platooning.git` |
-| Host PC | Monitoring and tablet web server | `~/platooning_host_ws` | `https://github.com/KweonTJ/Platooning_host.git` |
+| 리더 로봇 | TurtleBot3 Manipulation 로봇 | `~/turtlebot3_ws` | `https://github.com/KweonTJ/3D_pereception_Based_Mobile_Manipulator-Autonomous_Navigation_System.git` |
+| 팔로워 로봇 | 플래투닝 팔로워 로봇 | `~/Turtlebot3_Platooning` | `https://github.com/KweonTJ/Turtlebot3_Platooning.git` |
+| 호스트 PC | 브릿지 및 태블릿 모니터링 서버 | `~/platooning_host_ws` | `https://github.com/KweonTJ/Platooning_host.git` |
 
-## Domain IDs
+현재 로컬 기준 경로는 다음과 같다.
 
-These IDs are temporary and can be changed later, but all three machines must
-use the same convention during one run.
+```text
+리더 워크스페이스:   /home/ktj/turtlebot3_ws/src
+팔로워 워크스페이스: /home/ktj/Desktop/Turtlebot3_Platooning/src
+호스트 워크스페이스: /home/ktj/platooning_host_ws/src
+```
 
-| Domain | Current ID | Used by |
+## ROS 도메인 ID
+
+현재 도메인 ID는 임시값이다. 추후 실제 네트워크 구성에 맞게 수정할 수 있지만,
+한 번의 실행에서는 세 장비가 아래 기준을 동일하게 사용해야 한다.
+
+| 도메인 | 현재 ID | 사용 대상 |
 | --- | ---: | --- |
-| Leader / simulation domain | `10` | Leader robot and leader-side state topics |
-| Follower robot domain | `20` | Follower vision, platooning, safety, and `/cmd_vel` |
-| Host monitor domain | `16` | Host bridge and tablet monitor |
+| 리더 로봇 도메인 | `10` | 리더 로봇, 리더 상태 토픽, 리더 명령 토픽 |
+| 팔로워 로봇 도메인 | `20` | 팔로워 비전, 플래투닝 제어, 안전 제어, `/cmd_vel` |
+| 호스트 모니터링 도메인 | `16` | 호스트 브릿지, 태블릿 웹 대시보드 |
 
-Set this on every machine before running ROS:
+모든 장비에서 ROS 실행 전에 아래 값을 설정한다.
 
 ```bash
 export ROS_LOCALHOST_ONLY=0
 ```
 
-## Network Checklist
+## 네트워크 확인
 
-1. Put the leader robot, follower robot, host PC, and Galaxy Tab S8 on the same
-   network.
-2. Confirm each machine can ping the host PC and the robot PCs.
-3. Keep `ROS_LOCALHOST_ONLY=0` on all three machines.
-4. Allow TCP port `8080` on the host PC if a firewall is enabled.
-5. Use the host PC LAN IP for the tablet. On the current host PC it was:
+1. 리더 로봇, 팔로워 로봇, 호스트 PC, 갤럭시 탭 S8을 같은 네트워크에 연결한다.
+2. 각 장비에서 서로 `ping`이 되는지 확인한다.
+3. 모든 장비에서 `ROS_LOCALHOST_ONLY=0`을 사용한다.
+4. 호스트 PC 방화벽을 사용하는 경우 TCP `8080` 포트를 허용한다.
+5. 태블릿에서는 호스트 PC의 LAN IP로 접속한다.
+
+현재 호스트 PC에서 확인된 주소는 다음과 같았다.
 
 ```text
 http://192.168.0.3:8080
 ```
 
-Re-check the IP when the network changes:
+네트워크가 바뀌면 호스트 PC에서 다시 확인한다.
 
 ```bash
 hostname -I
 ```
 
-## First-Time Setup
+`172.*` 주소는 Docker 쪽 주소일 가능성이 높으므로 태블릿 접속에는 보통
+사용하지 않는다.
 
-### Leader Robot
+## 최초 설치
+
+### 리더 로봇
+
+리더 로봇에는 `turtlebot3_ws`를 만든다.
 
 ```bash
 mkdir -p ~/turtlebot3_ws/src
@@ -61,7 +75,9 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
 
-### Follower Robot
+### 팔로워 로봇
+
+팔로워 로봇에는 `Turtlebot3_Platooning` 워크스페이스를 만든다.
 
 ```bash
 mkdir -p ~/Turtlebot3_Platooning/src
@@ -73,7 +89,9 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
 
-### Host PC
+### 호스트 PC
+
+호스트 PC에는 `platooning_host_ws`를 만든다.
 
 ```bash
 mkdir -p ~/platooning_host_ws/src
@@ -85,17 +103,23 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
 
-## Run Order
+## 실행 순서
 
-Start the system in this order so subscribers and bridges are ready before the
-task starts.
+실행 순서는 다음을 권장한다.
 
-## 1. Host PC
+1. 호스트 PC 브릿지 및 태블릿 모니터 실행
+2. 팔로워 로봇 실행
+3. 리더 로봇 실행
 
-The host PC bridges leader domain `10` and follower domain `20` into host domain
-`16`, then serves the tablet dashboard.
+호스트 브릿지와 팔로워 구독 노드가 먼저 떠 있어야 리더 작업 시작 시 상태 토픽을
+놓칠 가능성이 줄어든다.
 
-Terminal 1:
+## 1. 호스트 PC 실행
+
+호스트 PC는 리더 도메인 `10`과 팔로워 도메인 `20`의 토픽을 호스트 도메인
+`16`으로 가져오고, 태블릿에서 볼 수 있는 웹 대시보드를 띄운다.
+
+터미널 1에서 브릿지를 실행한다.
 
 ```bash
 export ROS_LOCALHOST_ONLY=0
@@ -104,7 +128,14 @@ source ~/platooning_host_ws/install/setup.bash
 ros2 launch platooning_bridge_config bridge.launch.py
 ```
 
-Terminal 2:
+이 브릿지는 아래 두 경로를 동시에 연결한다.
+
+```text
+리더 도메인 10 -> 호스트 도메인 16
+팔로워 도메인 20 -> 호스트 도메인 16
+```
+
+터미널 2에서 태블릿 모니터를 실행한다.
 
 ```bash
 export ROS_DOMAIN_ID=16
@@ -114,24 +145,29 @@ source ~/platooning_host_ws/install/setup.bash
 ros2 launch platooning_tablet_monitor tablet_monitor.launch.py host:=0.0.0.0 port:=8080
 ```
 
-Open the dashboard:
+브라우저 접속 주소는 다음과 같다.
 
 ```text
-Host PC: http://localhost:8080
-Tablet:  http://<host-pc-ip>:8080
+호스트 PC: http://localhost:8080
+태블릿:    http://<host-pc-ip>:8080
 ```
 
-The top line should show:
+갤럭시 탭 S8 기본 모델에서는 가로 모드로 보는 것을 기준으로 한다.
+
+웹 상단에는 아래와 같이 표시되어야 한다.
 
 ```text
 Host domain 16 · Simulation 10 · Follower 20
 ```
 
-## 2. Follower Robot
+여기서 `Simulation 10`은 현재 리더 도메인으로 사용 중인 값이다. 실제 리더 로봇도
+동일하게 도메인 `10`을 사용한다.
 
-The follower runs in domain `20`. It reads leader state bridged from domain `10`,
-tracks the leader marker, applies platooning control, and publishes final
-`/cmd_vel` through `follower_safety`.
+## 2. 팔로워 로봇 실행
+
+팔로워 로봇은 도메인 `20`에서 실행한다. 팔로워는 리더 상태 토픽을 받아 플래투닝
+상태를 판단하고, 카메라로 리더 마커를 추적한 뒤 안전 노드를 거쳐 최종 `/cmd_vel`을
+발행한다.
 
 ```bash
 export ROS_DOMAIN_ID=20
@@ -141,26 +177,32 @@ source ~/Turtlebot3_Platooning/install/setup.bash
 ros2 launch follower_bringup follower_system.launch.py start_rviz:=false
 ```
 
-Useful options:
+카메라 없이 노드 구동만 확인하려면 다음처럼 실행한다.
 
 ```bash
 ros2 launch follower_bringup follower_system.launch.py use_camera:=false start_rviz:=false
+```
+
+카메라 장치 번호를 지정해야 할 경우:
+
+```bash
 ros2 launch follower_bringup follower_system.launch.py video_device:=/dev/video0 start_rviz:=false
 ```
 
-Follower assumptions:
+팔로워 현재 설정은 다음과 같다.
 
-- The leader has the configured ArUco marker visible to the follower camera.
-- Current marker config is ID `0`, dictionary `DICT_4X4_50`, size `0.10 m`.
-- Current target distance is `0.45 m`.
-- `follower_platooning` publishes `/follower/cmd_vel_raw`.
-- Only `follower_safety` publishes final `/cmd_vel`.
+- 리더 마커: ArUco
+- 마커 ID: `0`
+- 마커 사전: `DICT_4X4_50`
+- 마커 크기: `0.10 m`
+- 목표 거리: `0.45 m`
+- `follower_platooning`은 `/follower/cmd_vel_raw`를 발행한다.
+- 최종 `/cmd_vel`은 `follower_safety`만 발행한다.
 
-## 3. Leader Robot
+## 3. 리더 로봇 실행
 
-The leader runs in domain `10`. It starts the manipulation hardware, camera,
-CSRT/IBVS perception, `mp_control`, leader task manager, beacon, and the optional
-leader-to-follower bridge.
+리더 로봇은 도메인 `10`에서 실행한다. 리더는 매니퓰레이터 하드웨어, 카메라,
+CSRT/IBVS 인식, `mp_control`, 리더 상태 관리자, 비콘, 리더-팔로워 브릿지를 실행한다.
 
 ```bash
 export ROS_DOMAIN_ID=10
@@ -170,37 +212,39 @@ source ~/turtlebot3_ws/install/setup.bash
 ros2 launch mp_control real_pick_place.launch.py start_rviz:=false start_domain_bridge:=true
 ```
 
-Useful options:
-
-```bash
-ros2 launch mp_control real_pick_place.launch.py start_rviz:=false start_domain_bridge:=true start_lidar:=true
-ros2 launch mp_control real_pick_place.launch.py start_rviz:=false start_domain_bridge:=true eef_camera_video_device:=/dev/video0
-```
-
-If `start_lidar:=true`, set the lidar model first:
+라이다를 같이 실행해야 할 경우:
 
 ```bash
 export LDS_MODEL=LDS-01
+ros2 launch mp_control real_pick_place.launch.py start_rviz:=false start_domain_bridge:=true start_lidar:=true
 ```
 
-or:
+또는 LDS-02를 쓰는 경우:
 
 ```bash
 export LDS_MODEL=LDS-02
+ros2 launch mp_control real_pick_place.launch.py start_rviz:=false start_domain_bridge:=true start_lidar:=true
 ```
 
-Leader notes:
+엔드이펙터 카메라 장치 번호를 지정해야 할 경우:
 
-- `real_pick_place.launch.py` defaults to depth-first object initialization.
-- The end-effector camera is near-field refinement, not the primary detector.
-- `start_domain_bridge:=true` bridges `/leader/*` topics from domain `10` to
-  follower domain `20`.
-- The host PC separately mirrors leader domain `10` and follower domain `20`
-  into monitor domain `16`.
+```bash
+ros2 launch mp_control real_pick_place.launch.py start_rviz:=false start_domain_bridge:=true eef_camera_video_device:=/dev/video0
+```
 
-## Runtime Checks
+리더 실행 시 참고 사항:
 
-### Host PC
+- `real_pick_place.launch.py`는 실제 로봇용 pick-and-place 통합 런치이다.
+- 실제 로봇 기본 인식은 depth-first 초기 검출 기준이다.
+- 엔드이펙터 카메라는 근거리 보정용이며, 주 검출기는 전방 RGB-D 카메라이다.
+- `start_domain_bridge:=true`는 리더 도메인 `10`의 `/leader/*` 토픽을 팔로워
+  도메인 `20`으로 전달한다.
+- 호스트 PC는 별도로 리더 도메인 `10`과 팔로워 도메인 `20`을 호스트 도메인
+  `16`으로 가져온다.
+
+## 실행 중 확인
+
+### 호스트 PC 확인
 
 ```bash
 export ROS_DOMAIN_ID=16
@@ -210,15 +254,15 @@ ros2 topic list | grep -E '/leader|/follower'
 curl http://localhost:8080/api/status
 ```
 
-Expected dashboard behavior:
+정상 상태에서는 다음이 확인된다.
 
-- `Leader Task` changes from `-` after leader state starts arriving.
-- `Follower` changes from `-` after follower status starts arriving.
-- `Live Spacing` updates after `/follower/distance_error` is received.
-- `Leader`, `Follower`, `Spacing`, and `Safety` cells turn green or yellow
-  depending on current state.
+- `Leader Task`가 `-`에서 실제 리더 상태로 바뀐다.
+- `Follower`가 `-`에서 팔로워 상태로 바뀐다.
+- `/follower/distance_error`가 들어오면 `Live Spacing` 그래프가 움직인다.
+- `Leader`, `Follower`, `Spacing`, `Safety` 상태 칸이 상황에 따라 초록색 또는
+  노란색으로 바뀐다.
 
-### Follower Robot
+### 팔로워 로봇 확인
 
 ```bash
 export ROS_DOMAIN_ID=20
@@ -229,7 +273,7 @@ ros2 topic echo /follower/status --once
 ros2 topic echo /cmd_vel --once
 ```
 
-### Leader Robot
+### 리더 로봇 확인
 
 ```bash
 export ROS_DOMAIN_ID=10
@@ -240,30 +284,30 @@ ros2 topic echo /leader/task_state --once
 ros2 topic echo /mp_control/status --once
 ```
 
-## Shutdown
+## 종료 방법
 
-Stop the launch processes with `Ctrl+C` in each terminal.
+각 터미널에서 실행 중인 launch는 `Ctrl+C`로 종료한다.
 
-If the host services were started through `systemd-run`, stop them with:
+호스트에서 `systemd-run`으로 임시 서비스를 띄운 경우에는 다음 명령으로 종료한다.
 
 ```bash
 systemctl --user stop platooning_tablet_monitor.service
 systemctl --user stop platooning_host_bridge.service
 ```
 
-## Troubleshooting
+## 문제 해결
 
-### The tablet page opens but all values are `-` or `WAIT`
+### 태블릿 페이지는 열리지만 값이 전부 `-` 또는 `WAIT`인 경우
 
-The web server is running, but ROS data is not reaching domain `16`.
+웹 서버는 실행 중이지만 ROS 토픽이 호스트 도메인 `16`으로 들어오지 않는 상태이다.
 
-Check host bridge:
+호스트 브릿지 상태를 확인한다.
 
 ```bash
 systemctl --user status platooning_host_bridge.service --no-pager -l
 ```
 
-Or run it manually:
+또는 브릿지를 직접 실행한다.
 
 ```bash
 export ROS_LOCALHOST_ONLY=0
@@ -272,24 +316,24 @@ source ~/platooning_host_ws/install/setup.bash
 ros2 launch platooning_bridge_config bridge.launch.py
 ```
 
-### The tablet cannot open the page
+### 태블릿에서 페이지가 열리지 않는 경우
 
-Check the host server and port:
+호스트 PC에서 웹 서버와 포트를 확인한다.
 
 ```bash
 ss -ltnp | grep ':8080'
 curl http://localhost:8080
 ```
 
-Then open this on the tablet:
+태블릿에서는 아래 형식으로 접속한다.
 
 ```text
 http://<host-pc-ip>:8080
 ```
 
-### Follower does not move
+### 팔로워가 움직이지 않는 경우
 
-Check these in domain `20`:
+팔로워 도메인 `20`에서 아래 토픽을 확인한다.
 
 ```bash
 ros2 topic echo /leader/follower_enable --once
@@ -299,17 +343,26 @@ ros2 topic echo /follower/cmd_vel_raw --once
 ros2 topic echo /cmd_vel --once
 ```
 
-If `/follower/cmd_vel_raw` changes but `/cmd_vel` does not, inspect
-`follower_safety`.
+`/follower/cmd_vel_raw`는 변하지만 `/cmd_vel`이 변하지 않으면 `follower_safety`
+쪽에서 정지시키고 있는지 확인한다.
 
-### Leader data appears on follower but not on host
+### 팔로워에는 리더 데이터가 보이는데 호스트 홈페이지에는 안 보이는 경우
 
-The leader-to-follower bridge may be working, but the host bridge may not be.
-Run this on the host PC:
+리더-팔로워 브릿지는 정상일 수 있지만, 호스트 브릿지가 꺼져 있을 수 있다.
+호스트 PC에서 아래를 확인한다.
 
 ```bash
 export ROS_DOMAIN_ID=16
 source /opt/ros/humble/setup.bash
 source ~/platooning_host_ws/install/setup.bash
 ros2 topic echo /leader/task_state --once
+```
+
+값이 나오지 않으면 호스트 브릿지를 다시 실행한다.
+
+```bash
+export ROS_LOCALHOST_ONLY=0
+source /opt/ros/humble/setup.bash
+source ~/platooning_host_ws/install/setup.bash
+ros2 launch platooning_bridge_config bridge.launch.py
 ```
