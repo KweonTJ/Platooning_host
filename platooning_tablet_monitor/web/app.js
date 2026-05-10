@@ -16,6 +16,44 @@ function text(id, value) {
   el.textContent = value === null || value === undefined || value === "" ? "-" : value;
 }
 
+function numberValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatSpeed(motion) {
+  const speed = numberValue(getObject(motion).speed_mps);
+  return speed === null ? "-" : `${speed.toFixed(2)} m/s`;
+}
+
+function formatAngular(motion) {
+  const angular = numberValue(getObject(motion).angular_z_rad_s);
+  return angular === null ? "angular -" : `angular ${angular.toFixed(2)} rad/s`;
+}
+
+function batteryKnown(battery) {
+  battery = getObject(battery);
+  return numberValue(battery.percentage) !== null || numberValue(battery.voltage) !== null;
+}
+
+function formatBattery(battery) {
+  battery = getObject(battery);
+  const percentage = numberValue(battery.percentage);
+  if (percentage !== null) {
+    return `${percentage.toFixed(0)}%`;
+  }
+  const voltage = numberValue(battery.voltage);
+  return voltage === null ? "-" : `${voltage.toFixed(1)} V`;
+}
+
+function formatBatteryMeta(battery) {
+  battery = getObject(battery);
+  const voltage = numberValue(battery.voltage);
+  const status = battery.status || "-";
+  const voltageLabel = voltage === null ? "voltage -" : `voltage ${voltage.toFixed(1)} V`;
+  return `${voltageLabel} · ${status}`;
+}
+
 function setPill(id, label, state) {
   const el = $(id);
   if (!el) {
@@ -33,7 +71,7 @@ function setHealth(id, label, ok, warnWhenMissing = true) {
   let state = "bad";
   if (ok === true) {
     state = "ok";
-  } else if (ok === null && warnWhenMissing) {
+  } else if (ok == null && warnWhenMissing) {
     state = "warn";
   }
   el.textContent = label;
@@ -116,6 +154,10 @@ function update(data) {
   const task = getObject(data.task);
   const cargo = getObject(data.cargo);
   const lastEvent = getObject(cargo.last_event);
+  const leaderMotion = getObject(leader.motion);
+  const followerMotion = getObject(follower.motion);
+  const leaderBattery = getObject(leader.battery);
+  const followerBattery = getObject(follower.battery);
 
   text("hostDomain", server.host_domain_id || server.ros_domain_id || "-");
   text("simulationDomain", server.simulation_domain_id);
@@ -136,6 +178,31 @@ function update(data) {
   text("placedCount", `placed ${cargo.placed_count ?? 0}`);
   text("currentCargo", cargo.current_id);
   text("lastCargoEvent", `event ${eventLabel(lastEvent.event)}`);
+
+  text("leaderSpeed", formatSpeed(leaderMotion));
+  text("leaderAngular", `${formatAngular(leaderMotion)} · ${leaderMotion.source || "-"}`);
+  text("followerSpeed", formatSpeed(followerMotion));
+  text("followerAngular", `${formatAngular(followerMotion)} · ${followerMotion.source || "-"}`);
+  text("leaderBattery", formatBattery(leaderBattery));
+  text("leaderBatteryMeta", formatBatteryMeta(leaderBattery));
+  text("followerBattery", formatBattery(followerBattery));
+  text("followerBatteryMeta", formatBatteryMeta(followerBattery));
+
+  const leaderBatteryKnown = batteryKnown(leaderBattery);
+  const followerBatteryKnown = batteryKnown(followerBattery);
+  let batteryLabel = "Battery Check";
+  let batteryClass = "warn";
+  if (health.battery_ok === false) {
+    batteryLabel = "Battery Low";
+    batteryClass = "bad";
+  } else if (leaderBatteryKnown && followerBatteryKnown) {
+    batteryLabel = "Battery OK";
+    batteryClass = "ok";
+  } else if (leaderBatteryKnown || followerBatteryKnown) {
+    batteryLabel = "Battery Partial";
+    batteryClass = "warn";
+  }
+  setPill("batteryState", batteryLabel, batteryClass);
 
   text("leaderTask", leader.task_state);
   text("platoonMode", leader.platoon_mode);
@@ -159,6 +226,7 @@ function update(data) {
   setHealth("leaderLink", "Leader", health.leader_link);
   setHealth("followerLink", "Follower", health.follower_link);
   setHealth("graspHealth", "Grasp", task.grasp_ok);
+  setHealth("batteryHealth", "Battery", health.battery_ok);
   setHealth("safetyOk", "Safety", health.safety_ok);
 }
 

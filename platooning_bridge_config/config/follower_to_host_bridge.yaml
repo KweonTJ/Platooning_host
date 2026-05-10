@@ -17,6 +17,33 @@ topics:
       durability: volatile
       depth: 5
 
+  follower/odom:
+    type: nav_msgs/msg/Odometry
+    from_topic: /odom
+    to_topic: /follower/odom
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
+  follower/cmd_vel:
+    type: geometry_msgs/msg/Twist
+    from_topic: /cmd_vel
+    to_topic: /follower/cmd_vel
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
+  follower/battery_state:
+    type: sensor_msgs/msg/BatteryState
+    from_topic: /battery_state
+    to_topic: /follower/battery_state
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
   follower/distance_error:
     type: std_msgs/msg/Float32
     qos:

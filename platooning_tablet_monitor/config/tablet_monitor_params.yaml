@@ -16,6 +16,7 @@ platooning_tablet_monitor:
     leader_heartbeat_topic: "/leader/heartbeat"
     leader_cmd_vel_topic: "/leader/cmd_vel"
     leader_odom_topic: "/leader/odom"
+    leader_battery_state_topic: "/leader/battery_state"
     mp_control_status_topic: "/mp_control/status"
     sim_pick_place_status_topic: "/mp_control/pick_place_status"
     cargo_events_topic: "/cargo/events"
@@ -23,6 +24,9 @@ platooning_tablet_monitor:
 
     follower_status_topic: "/follower/status"
     follower_safety_state_topic: "/follower/safety_state"
+    follower_cmd_vel_topic: "/follower/cmd_vel"
+    follower_odom_topic: "/follower/odom"
+    follower_battery_state_topic: "/follower/battery_state"
     follower_distance_error_topic: "/follower/distance_error"
     follower_target_visible_topic: "/follower/target_visible"
     follower_target_distance_topic: "/follower/target_distance"

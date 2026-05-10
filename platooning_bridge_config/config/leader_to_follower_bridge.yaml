@@ -52,6 +52,15 @@ topics:
       durability: volatile
       depth: 5
 
+  leader/battery_state:
+    type: sensor_msgs/msg/BatteryState
+    from_topic: /battery_state
+    to_topic: /leader/battery_state
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
   mp_control/status:
     type: std_msgs/msg/String
     qos:

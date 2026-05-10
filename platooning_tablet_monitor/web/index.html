@@ -47,6 +47,35 @@
         </article>
       </section>
 
+      <section class="ops-panel">
+        <div class="panel-head">
+          <h2>운용 상태</h2>
+          <span id="batteryState" class="pill neutral">Battery Check</span>
+        </div>
+        <div class="ops-grid">
+          <div>
+            <span class="label">리더 속도</span>
+            <strong id="leaderSpeed">-</strong>
+            <small id="leaderAngular">angular -</small>
+          </div>
+          <div>
+            <span class="label">팔로워 속도</span>
+            <strong id="followerSpeed">-</strong>
+            <small id="followerAngular">angular -</small>
+          </div>
+          <div>
+            <span class="label">리더 배터리</span>
+            <strong id="leaderBattery">-</strong>
+            <small id="leaderBatteryMeta">voltage -</small>
+          </div>
+          <div>
+            <span class="label">팔로워 배터리</span>
+            <strong id="followerBattery">-</strong>
+            <small id="followerBatteryMeta">voltage -</small>
+          </div>
+        </div>
+      </section>
+
       <section class="split">
         <article class="panel">
           <div class="panel-head">
@@ -89,6 +118,7 @@
         <div id="leaderLink" class="health-cell">Leader</div>
         <div id="followerLink" class="health-cell">Follower</div>
         <div id="graspHealth" class="health-cell">Grasp</div>
+        <div id="batteryHealth" class="health-cell">Battery</div>
         <div id="safetyOk" class="health-cell">Safety</div>
       </section>
     </main>

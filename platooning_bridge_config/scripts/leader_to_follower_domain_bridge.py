@@ -90,16 +90,18 @@ class BridgeEndpoint:
         for topic, topic_config in self.topics.items():
             msg_type = message_type(str(topic_config["type"]))
             qos = qos_profile(topic_config.get("qos"))
-            publisher = self.to_node.create_publisher(msg_type, topic, qos)
+            from_topic = str(topic_config.get("from_topic", topic))
+            to_topic = str(topic_config.get("to_topic", topic))
+            publisher = self.to_node.create_publisher(msg_type, to_topic, qos)
 
             def relay(msg, pub=publisher):
                 pub.publish(msg)
 
-            subscription = self.from_node.create_subscription(msg_type, topic, relay, qos)
+            subscription = self.from_node.create_subscription(msg_type, from_topic, relay, qos)
             self.publishers.append(publisher)
             self.subscriptions.append(subscription)
             self.from_node.get_logger().info(
-                f"bridging {topic} [{topic_config['type']}] "
+                f"bridging {from_topic} -> {to_topic} [{topic_config['type']}] "
                 f"domain {self.from_domain} -> {self.to_domain}"
             )
 

@@ -21,6 +21,7 @@ from rclpy.qos import DurabilityPolicy
 from rclpy.qos import HistoryPolicy
 from rclpy.qos import QoSProfile
 from rclpy.qos import ReliabilityPolicy
+from sensor_msgs.msg import BatteryState
 from std_msgs.msg import Bool
 from std_msgs.msg import Float32
 from std_msgs.msg import String
@@ -39,6 +40,26 @@ def finite_float(value):
     if math.isfinite(value):
         return value
     return None
+
+
+def battery_status_label(status):
+    labels = {
+        BatteryState.POWER_SUPPLY_STATUS_UNKNOWN: "unknown",
+        BatteryState.POWER_SUPPLY_STATUS_CHARGING: "charging",
+        BatteryState.POWER_SUPPLY_STATUS_DISCHARGING: "discharging",
+        BatteryState.POWER_SUPPLY_STATUS_NOT_CHARGING: "not charging",
+        BatteryState.POWER_SUPPLY_STATUS_FULL: "full",
+    }
+    return labels.get(int(status), "unknown")
+
+
+def percent_from_battery(msg):
+    percentage = finite_float(msg.percentage)
+    if percentage is None:
+        return None
+    if percentage <= 1.0:
+        return percentage * 100.0
+    return percentage
 
 
 def compact_stage(text):
@@ -112,6 +133,7 @@ class PlatooningTabletMonitor(Node):
         self.declare_parameter("leader_heartbeat_topic", "/leader/heartbeat")
         self.declare_parameter("leader_cmd_vel_topic", "/leader/cmd_vel")
         self.declare_parameter("leader_odom_topic", "/leader/odom")
+        self.declare_parameter("leader_battery_state_topic", "/leader/battery_state")
         self.declare_parameter("mp_control_status_topic", "/mp_control/status")
         self.declare_parameter("sim_pick_place_status_topic", "/mp_control/pick_place_status")
         self.declare_parameter("cargo_events_topic", "/cargo/events")
@@ -119,6 +141,9 @@ class PlatooningTabletMonitor(Node):
 
         self.declare_parameter("follower_status_topic", "/follower/status")
         self.declare_parameter("follower_safety_state_topic", "/follower/safety_state")
+        self.declare_parameter("follower_cmd_vel_topic", "/follower/cmd_vel")
+        self.declare_parameter("follower_odom_topic", "/follower/odom")
+        self.declare_parameter("follower_battery_state_topic", "/follower/battery_state")
         self.declare_parameter("follower_distance_error_topic", "/follower/distance_error")
         self.declare_parameter("follower_target_visible_topic", "/follower/target_visible")
         self.declare_parameter("follower_target_distance_topic", "/follower/target_distance")
@@ -178,13 +203,19 @@ class PlatooningTabletMonitor(Node):
         self.create_subscription(
             Twist,
             self._str_param("leader_cmd_vel_topic"),
-            self._leader_cmd_vel_callback,
+            lambda msg: self._cmd_vel_callback("leader_cmd_vel", msg),
             live_qos,
         )
         self.create_subscription(
             Odometry,
             self._str_param("leader_odom_topic"),
-            self._leader_odom_callback,
+            lambda msg: self._odom_callback("leader_odom", msg),
+            live_qos,
+        )
+        self.create_subscription(
+            BatteryState,
+            self._str_param("leader_battery_state_topic"),
+            lambda msg: self._battery_callback("leader_battery", msg),
             live_qos,
         )
         self.create_subscription(
@@ -221,6 +252,24 @@ class PlatooningTabletMonitor(Node):
             String,
             self._str_param("follower_safety_state_topic"),
             lambda msg: self._set_value("follower_safety_state", msg.data),
+            live_qos,
+        )
+        self.create_subscription(
+            Twist,
+            self._str_param("follower_cmd_vel_topic"),
+            lambda msg: self._cmd_vel_callback("follower_cmd_vel", msg),
+            live_qos,
+        )
+        self.create_subscription(
+            Odometry,
+            self._str_param("follower_odom_topic"),
+            lambda msg: self._odom_callback("follower_odom", msg),
+            live_qos,
+        )
+        self.create_subscription(
+            BatteryState,
+            self._str_param("follower_battery_state_topic"),
+            lambda msg: self._battery_callback("follower_battery", msg),
             live_qos,
         )
         self.create_subscription(
@@ -263,26 +312,43 @@ class PlatooningTabletMonitor(Node):
                 "stamp": time.monotonic(),
             }
 
-    def _leader_cmd_vel_callback(self, msg):
-        self._set_value(
-            "leader_cmd_vel",
-            {
-                "linear_x": finite_float(msg.linear.x),
-                "angular_z": finite_float(msg.angular.z),
-            },
-        )
+    def _twist_payload(self, twist):
+        linear_x = finite_float(twist.linear.x)
+        linear_y = finite_float(twist.linear.y)
+        angular_z = finite_float(twist.angular.z)
+        speed = math.hypot(float(linear_x or 0.0), float(linear_y or 0.0))
+        return {
+            "linear_x": linear_x,
+            "linear_y": linear_y,
+            "speed_mps": finite_float(speed),
+            "angular_z": angular_z,
+        }
 
-    def _leader_odom_callback(self, msg):
+    def _cmd_vel_callback(self, key, msg):
+        self._set_value(key, self._twist_payload(msg))
+
+    def _odom_callback(self, key, msg):
         pose = msg.pose.pose
-        twist = msg.twist.twist
-        self._set_value(
-            "leader_odom",
+        payload = self._twist_payload(msg.twist.twist)
+        payload.update(
             {
                 "x": finite_float(pose.position.x),
                 "y": finite_float(pose.position.y),
                 "yaw": finite_float(yaw_from_quaternion(pose.orientation)),
-                "linear_x": finite_float(twist.linear.x),
-                "angular_z": finite_float(twist.angular.z),
+            }
+        )
+        self._set_value(key, payload)
+
+    def _battery_callback(self, key, msg):
+        self._set_value(
+            key,
+            {
+                "percentage": percent_from_battery(msg),
+                "voltage": finite_float(msg.voltage),
+                "current": finite_float(msg.current),
+                "charge": finite_float(msg.charge),
+                "capacity": finite_float(msg.capacity),
+                "status": battery_status_label(msg.power_supply_status),
             },
         )
 
@@ -371,6 +437,41 @@ class PlatooningTabletMonitor(Node):
             return None
         return max(0.0, now_monotonic - item["stamp"])
 
+    def _motion_summary(self, values, odom_key, cmd_key):
+        odom = self._value(values, odom_key)
+        cmd_vel = self._value(values, cmd_key)
+        source = None
+        speed = None
+        linear_x = None
+        angular_z = None
+
+        if isinstance(odom, dict):
+            source = "odom"
+            speed = odom.get("speed_mps")
+            linear_x = odom.get("linear_x")
+            angular_z = odom.get("angular_z")
+        if speed is None and isinstance(cmd_vel, dict):
+            source = "cmd_vel"
+            speed = cmd_vel.get("speed_mps")
+            linear_x = cmd_vel.get("linear_x")
+            angular_z = cmd_vel.get("angular_z")
+
+        return {
+            "speed_mps": speed,
+            "linear_x_mps": linear_x,
+            "angular_z_rad_s": angular_z,
+            "source": source,
+        }
+
+    def _battery_ok(self, values, key):
+        battery = self._value(values, key)
+        if not isinstance(battery, dict):
+            return None
+        percentage = battery.get("percentage")
+        if percentage is None:
+            return None
+        return float(percentage) >= 20.0
+
     def snapshot(self):
         now_monotonic = time.monotonic()
         with self._lock:
@@ -415,6 +516,14 @@ class PlatooningTabletMonitor(Node):
         )
         picked_count = sum(1 for item in cargo_items if item.get("state") in ("picked", "placed"))
         placed_count = sum(1 for item in cargo_items if item.get("state") == "placed")
+        leader_motion = self._motion_summary(values, "leader_odom", "leader_cmd_vel")
+        follower_motion = self._motion_summary(values, "follower_odom", "follower_cmd_vel")
+        leader_battery_ok = self._battery_ok(values, "leader_battery")
+        follower_battery_ok = self._battery_ok(values, "follower_battery")
+        known_batteries = [
+            item for item in (leader_battery_ok, follower_battery_ok) if item is not None
+        ]
+        battery_ok = all(known_batteries) if known_batteries else None
 
         if leader_link and follower_link and safety_ok:
             overall = "OK"
@@ -441,6 +550,9 @@ class PlatooningTabletMonitor(Node):
                 "heartbeat_age_s": heartbeat_age,
                 "cmd_vel": self._value(values, "leader_cmd_vel"),
                 "odom": self._value(values, "leader_odom"),
+                "motion": leader_motion,
+                "battery": self._value(values, "leader_battery"),
+                "battery_age_s": self._age(values, "leader_battery", now_monotonic),
             },
             "task": {
                 **task,
@@ -458,6 +570,11 @@ class PlatooningTabletMonitor(Node):
             "follower": {
                 "status": self._value(values, "follower_status"),
                 "safety_state": safety_state,
+                "cmd_vel": self._value(values, "follower_cmd_vel"),
+                "odom": self._value(values, "follower_odom"),
+                "motion": follower_motion,
+                "battery": self._value(values, "follower_battery"),
+                "battery_age_s": self._age(values, "follower_battery", now_monotonic),
                 "distance_error_m": distance_error,
                 "target_distance_m": target_distance,
                 "target_visible": target_visible,
@@ -473,6 +590,9 @@ class PlatooningTabletMonitor(Node):
                 "target_visible": target_visible is True,
                 "spacing_good": spacing_good,
                 "safety_ok": safety_ok,
+                "battery_ok": battery_ok,
+                "leader_battery_ok": leader_battery_ok,
+                "follower_battery_ok": follower_battery_ok,
             },
             "ages": {
                 key: self._age(values, key, now_monotonic)

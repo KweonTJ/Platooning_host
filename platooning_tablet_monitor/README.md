@@ -1,7 +1,8 @@
 # Platooning Tablet Monitor
 
 Tablet-friendly web monitor for the platooning host PC. The dashboard focuses
-on object approach, grasp state, current cargo ID, and the picked-object list.
+on object approach, grasp state, picked-object count/list, robot speed, and
+leader/follower battery checks.
 
 ## Run
 
@@ -33,12 +34,16 @@ http://<host-pc-ip>:8080
 - `/leader/heartbeat`
 - `/leader/cmd_vel`
 - `/leader/odom`
+- `/leader/battery_state`
 - `/mp_control/status`
 - `/mp_control/pick_place_status`
 - `/cargo/events`
 - `/cargo/current_id`
 - `/follower/status`
 - `/follower/safety_state`
+- `/follower/cmd_vel`
+- `/follower/odom`
+- `/follower/battery_state`
 - `/follower/distance_error`
 - `/follower/target_visible`
 - `/follower/target_distance`
