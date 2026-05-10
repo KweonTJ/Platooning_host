@@ -1,0 +1,46 @@
+name: follower_to_host_bridge
+from_domain: 20
+to_domain: 16
+
+topics:
+  follower/status:
+    type: std_msgs/msg/String
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
+  follower/safety_state:
+    type: std_msgs/msg/String
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
+  follower/distance_error:
+    type: std_msgs/msg/Float32
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
+  follower/target_visible:
+    type: std_msgs/msg/Bool
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
+  follower/target_distance:
+    type: std_msgs/msg/Float32
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5
+
+  follower/target_offset_x:
+    type: std_msgs/msg/Float32
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 5

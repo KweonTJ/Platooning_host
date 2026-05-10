@@ -20,20 +20,32 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    bridge_config = os.path.join(
+    simulation_bridge_config = os.path.join(
         get_package_share_directory("platooning_bridge_config"),
         "config",
         "leader_to_follower_bridge.yaml",
+    )
+    follower_bridge_config = os.path.join(
+        get_package_share_directory("platooning_bridge_config"),
+        "config",
+        "follower_to_host_bridge.yaml",
     )
 
     return LaunchDescription(
         [
             Node(
-                package="domain_bridge",
-                executable="domain_bridge",
+                package="platooning_bridge_config",
+                executable="leader_to_follower_domain_bridge.py",
                 name="simulation_to_host_bridge",
                 output="screen",
-                arguments=[bridge_config],
+                arguments=[simulation_bridge_config],
+            ),
+            Node(
+                package="platooning_bridge_config",
+                executable="leader_to_follower_domain_bridge.py",
+                name="follower_to_host_bridge",
+                output="screen",
+                arguments=[follower_bridge_config],
             ),
         ]
     )

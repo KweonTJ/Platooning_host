@@ -26,7 +26,7 @@ The current domain IDs are temporary and can be changed later.
 ## Run Bridge
 
 Run this on the host PC to mirror simulation leader topics from domain `10`
-into host domain `16`.
+and follower topics from domain `20` into host domain `16`.
 
 ```bash
 export ROS_LOCALHOST_ONLY=0
