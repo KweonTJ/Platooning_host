@@ -1,17 +1,17 @@
 # Platooning Host
 
 플래투닝 브릿지와 태블릿 모니터링 웹 서버를 실행하는 호스트 PC용 ROS 2
-워크스페이스 패키지 모음입니다.
+워크스페이스 패키지 모음
 
 실제 리더 로봇, 팔로워 로봇, 호스트 PC를 나누어 실행하는 전체 절차는
-[`REAL_ROBOT_DEPLOYMENT.md`](REAL_ROBOT_DEPLOYMENT.md)를 참고하면 됩니다.
+[`REAL_ROBOT_DEPLOYMENT.md`](REAL_ROBOT_DEPLOYMENT.md)를 참고
 
 ## 패키지 구성
 
 - `platooning_bridge_config`: 리더 도메인과 팔로워 도메인의 상태 토픽을 호스트
-  모니터링 도메인으로 가져오는 브릿지 패키지입니다.
+  모니터링 도메인으로 가져오는 브릿지 패키지
 - `platooning_tablet_monitor`: 갤럭시 탭 S8 또는 호스트 PC 브라우저에서 확인할 수
-  있는 웹 기반 플래투닝 대시보드입니다.
+  있는 웹 기반 플래투닝 대시보드
 
 ## 빌드
 
@@ -23,7 +23,7 @@ colcon build --symlink-install
 
 ## 현재 도메인 ID
 
-현재 도메인 ID는 임시값이며 추후 실제 네트워크 구성에 맞게 수정할 수 있습니다.
+현재 도메인 ID는 임시값이며 추후 실제 네트워크 구성에 맞게 수정
 
 - 리더 로봇 도메인: `10`
 - 팔로워 로봇 도메인: `20`
