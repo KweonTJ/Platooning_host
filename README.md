@@ -2,6 +2,9 @@
 
 Host-side ROS 2 workspace packages for platooning bridge and tablet monitoring.
 
+For the full three-machine real robot procedure, see
+[`REAL_ROBOT_DEPLOYMENT.md`](REAL_ROBOT_DEPLOYMENT.md).
+
 ## Packages
 
 - `platooning_bridge_config`: bridges simulation/leader topics into the host monitor domain.
