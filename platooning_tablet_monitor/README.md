@@ -1,6 +1,7 @@
 # Platooning Tablet Monitor
 
-Tablet-friendly web monitor for the platooning host PC.
+Tablet-friendly web monitor for the platooning host PC. The dashboard focuses
+on object approach, grasp state, current cargo ID, and the picked-object list.
 
 ## Run
 
@@ -32,6 +33,10 @@ http://<host-pc-ip>:8080
 - `/leader/heartbeat`
 - `/leader/cmd_vel`
 - `/leader/odom`
+- `/mp_control/status`
+- `/mp_control/pick_place_status`
+- `/cargo/events`
+- `/cargo/current_id`
 - `/follower/status`
 - `/follower/safety_state`
 - `/follower/distance_error`

@@ -2,6 +2,7 @@ import json
 import math
 import mimetypes
 import os
+from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -40,6 +41,57 @@ def finite_float(value):
     return None
 
 
+def compact_stage(text):
+    if not text:
+        return None
+    return str(text).split(":", 1)[0].strip()
+
+
+def classify_task(mp_status, sim_status, leader_task, cargo_state):
+    raw = mp_status or sim_status or leader_task or ""
+    text = str(raw)
+    upper = text.upper()
+    cargo_upper = str(cargo_state or "").upper()
+
+    if any(key in upper for key in ("BASE_APPROACH", "DEPTH_APPROACH", "APPROACH", "ALIGN")):
+        approach_label = "접근 중"
+        approach_active = True
+    elif any(key in upper for key in ("DETECTED", "READY", "WAITING")):
+        approach_label = "대기/탐지"
+        approach_active = False
+    elif any(key in upper for key in ("DONE", "PLACED", "LOADED")):
+        approach_label = "접근 완료"
+        approach_active = False
+    else:
+        approach_label = compact_stage(raw) or "-"
+        approach_active = False
+
+    if cargo_upper in ("GRASPED", "LOADING"):
+        grasp_label = "파지 중"
+        grasp_ok = True
+    elif cargo_upper == "LOADED":
+        grasp_label = "적재 완료"
+        grasp_ok = True
+    elif any(key in upper for key in ("PICK", "GRASP", "GRIPPER")):
+        grasp_label = "파지 동작"
+        grasp_ok = True
+    elif cargo_upper == "EMPTY":
+        grasp_label = "비어 있음"
+        grasp_ok = False
+    else:
+        grasp_label = cargo_state or "-"
+        grasp_ok = None
+
+    return {
+        "raw_status": text or None,
+        "stage": compact_stage(text),
+        "approach_label": approach_label,
+        "approach_active": approach_active,
+        "grasp_label": grasp_label,
+        "grasp_ok": grasp_ok,
+    }
+
+
 class PlatooningTabletMonitor(Node):
     def __init__(self):
         super().__init__("platooning_tablet_monitor")
@@ -60,6 +112,10 @@ class PlatooningTabletMonitor(Node):
         self.declare_parameter("leader_heartbeat_topic", "/leader/heartbeat")
         self.declare_parameter("leader_cmd_vel_topic", "/leader/cmd_vel")
         self.declare_parameter("leader_odom_topic", "/leader/odom")
+        self.declare_parameter("mp_control_status_topic", "/mp_control/status")
+        self.declare_parameter("sim_pick_place_status_topic", "/mp_control/pick_place_status")
+        self.declare_parameter("cargo_events_topic", "/cargo/events")
+        self.declare_parameter("cargo_current_id_topic", "/cargo/current_id")
 
         self.declare_parameter("follower_status_topic", "/follower/status")
         self.declare_parameter("follower_safety_state_topic", "/follower/safety_state")
@@ -70,6 +126,9 @@ class PlatooningTabletMonitor(Node):
 
         self._lock = Lock()
         self._values = {}
+        self._cargo_items = OrderedDict()
+        self._cargo_events = []
+        self._last_cargo_event = None
         self._server = None
         self._server_thread = None
 
@@ -127,6 +186,30 @@ class PlatooningTabletMonitor(Node):
             self._str_param("leader_odom_topic"),
             self._leader_odom_callback,
             live_qos,
+        )
+        self.create_subscription(
+            String,
+            self._str_param("mp_control_status_topic"),
+            lambda msg: self._set_value("mp_control_status", msg.data),
+            state_qos,
+        )
+        self.create_subscription(
+            String,
+            self._str_param("sim_pick_place_status_topic"),
+            lambda msg: self._set_value("sim_pick_place_status", msg.data),
+            live_qos,
+        )
+        self.create_subscription(
+            String,
+            self._str_param("cargo_events_topic"),
+            self._cargo_event_callback,
+            live_qos,
+        )
+        self.create_subscription(
+            String,
+            self._str_param("cargo_current_id_topic"),
+            self._cargo_current_id_callback,
+            state_qos,
         )
         self.create_subscription(
             String,
@@ -203,6 +286,79 @@ class PlatooningTabletMonitor(Node):
             },
         )
 
+    def _cargo_current_id_callback(self, msg):
+        cargo_id = str(msg.data).strip()
+        self._set_value("cargo_current_id", cargo_id)
+        if not cargo_id:
+            return
+        with self._lock:
+            self._ensure_cargo_item(cargo_id)
+
+    def _cargo_event_callback(self, msg):
+        raw_event = str(msg.data)
+        try:
+            event_data = json.loads(raw_event)
+            cargo_id = str(event_data.get("cargo_id") or "").strip()
+            event = str(event_data.get("event") or raw_event).strip()
+        except json.JSONDecodeError:
+            cargo_id = ""
+            event = raw_event.strip()
+
+        received_label = time.strftime("%H:%M:%S")
+        with self._lock:
+            if not cargo_id:
+                current = self._values.get("cargo_current_id")
+                if current is not None:
+                    cargo_id = str(current["value"]).strip()
+            if not cargo_id:
+                cargo_id = "unknown"
+
+            item = self._ensure_cargo_item(cargo_id)
+            item["latest_event"] = event
+            item["state"] = self._cargo_state_from_event(event)
+            item["updated_at"] = received_label
+            item["event_count"] = int(item.get("event_count", 0)) + 1
+
+            event_record = {
+                "cargo_id": cargo_id,
+                "event": event,
+                "received_at": received_label,
+                "raw": raw_event,
+            }
+            self._last_cargo_event = event_record
+            self._cargo_events.append(event_record)
+            self._cargo_events = self._cargo_events[-40:]
+
+            self._values["cargo_last_event"] = {
+                "value": event_record,
+                "stamp": time.monotonic(),
+            }
+
+    def _ensure_cargo_item(self, cargo_id):
+        item = self._cargo_items.get(cargo_id)
+        if item is None:
+            item = {
+                "cargo_id": cargo_id,
+                "state": "assigned",
+                "latest_event": "assigned",
+                "updated_at": time.strftime("%H:%M:%S"),
+                "event_count": 0,
+            }
+            self._cargo_items[cargo_id] = item
+        return item
+
+    def _cargo_state_from_event(self, event):
+        event_upper = str(event or "").upper()
+        if any(key in event_upper for key in ("PICKED", "GRASPED")):
+            return "picked"
+        if any(key in event_upper for key in ("PLACED", "LOADED", "LOAD_DONE")):
+            return "placed"
+        if "CANCEL" in event_upper:
+            return "cancelled"
+        if "ASSIGN" in event_upper:
+            return "assigned"
+        return str(event or "updated")
+
     def _value(self, values, key):
         item = values.get(key)
         if item is None:
@@ -219,6 +375,9 @@ class PlatooningTabletMonitor(Node):
         now_monotonic = time.monotonic()
         with self._lock:
             values = dict(self._values)
+            cargo_items = [dict(item) for item in self._cargo_items.values()]
+            cargo_events = list(self._cargo_events)
+            last_cargo_event = dict(self._last_cargo_event) if self._last_cargo_event else None
 
         target_spacing = self._float_param("target_spacing_m")
         heartbeat_timeout = self._float_param("heartbeat_timeout_s")
@@ -248,6 +407,14 @@ class PlatooningTabletMonitor(Node):
             self._value(values, "leader_follower_enable") is True and
             self._value(values, "leader_platoon_mode") == "FOLLOW"
         )
+        task = classify_task(
+            self._value(values, "mp_control_status"),
+            self._value(values, "sim_pick_place_status"),
+            self._value(values, "leader_task_state"),
+            self._value(values, "leader_cargo_state"),
+        )
+        picked_count = sum(1 for item in cargo_items if item.get("state") in ("picked", "placed"))
+        placed_count = sum(1 for item in cargo_items if item.get("state") == "placed")
 
         if leader_link and follower_link and safety_ok:
             overall = "OK"
@@ -274,6 +441,19 @@ class PlatooningTabletMonitor(Node):
                 "heartbeat_age_s": heartbeat_age,
                 "cmd_vel": self._value(values, "leader_cmd_vel"),
                 "odom": self._value(values, "leader_odom"),
+            },
+            "task": {
+                **task,
+                "mp_control_status": self._value(values, "mp_control_status"),
+                "sim_pick_place_status": self._value(values, "sim_pick_place_status"),
+            },
+            "cargo": {
+                "current_id": self._value(values, "cargo_current_id"),
+                "picked_count": picked_count,
+                "placed_count": placed_count,
+                "items": list(reversed(cargo_items[-12:])),
+                "events": list(reversed(cargo_events[-12:])),
+                "last_event": last_cargo_event,
             },
             "follower": {
                 "status": self._value(values, "follower_status"),

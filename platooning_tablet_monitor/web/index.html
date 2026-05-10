@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,10 +10,10 @@
     <main class="shell">
       <header class="topbar">
         <div>
-          <h1>Platooning Monitor</h1>
+          <h1>작업 모니터</h1>
           <p id="subtitle">
-            Host domain <span id="hostDomain">-</span> ·
-            Simulation <span id="simulationDomain">-</span> ·
+            Host <span id="hostDomain">-</span> ·
+            Leader <span id="simulationDomain">-</span> ·
             Follower <span id="followerDomain">-</span> ·
             <span id="clock">-</span>
           </p>
@@ -26,66 +26,69 @@
 
       <section class="metrics">
         <article class="metric">
-          <span class="label">Leader Task</span>
-          <strong id="leaderTask">-</strong>
+          <span class="label">물체 접근</span>
+          <strong id="approachState">-</strong>
+          <small id="taskStage">stage -</small>
+        </article>
+        <article class="metric">
+          <span class="label">파지 상태</span>
+          <strong id="graspState">-</strong>
           <small id="leaderCargo">cargo -</small>
         </article>
         <article class="metric">
-          <span class="label">Platoon Mode</span>
-          <strong id="platoonMode">-</strong>
-          <small id="followerEnable">enable -</small>
+          <span class="label">파지 개수</span>
+          <strong id="pickedCount">0</strong>
+          <small id="placedCount">placed 0</small>
         </article>
         <article class="metric">
-          <span class="label">Follower</span>
-          <strong id="followerStatus">-</strong>
-          <small id="safetyState">safety -</small>
-        </article>
-        <article class="metric">
-          <span class="label">Spacing Error</span>
-          <strong id="spacingError">-</strong>
-          <small id="targetDistance">target -</small>
+          <span class="label">현재 물체</span>
+          <strong id="currentCargo">-</strong>
+          <small id="lastCargoEvent">event -</small>
         </article>
       </section>
 
       <section class="split">
         <article class="panel">
           <div class="panel-head">
-            <h2>Live Spacing</h2>
-            <span id="targetVisible" class="pill neutral">Target</span>
-          </div>
-          <canvas id="spacingChart" width="720" height="260"></canvas>
-        </article>
-
-        <article class="panel">
-          <div class="panel-head">
-            <h2>Motion</h2>
+            <h2>작업 진행</h2>
             <span id="activeState" class="pill neutral">Standby</span>
           </div>
           <div class="readout-grid">
             <div>
-              <span class="label">Leader Linear</span>
-              <strong id="leaderLinear">-</strong>
+              <span class="label">리더 작업</span>
+              <strong id="leaderTask">-</strong>
             </div>
             <div>
-              <span class="label">Leader Angular</span>
-              <strong id="leaderAngular">-</strong>
+              <span class="label">플래투닝</span>
+              <strong id="platoonMode">-</strong>
+              <small id="followerEnable">enable -</small>
             </div>
-            <div>
-              <span class="label">Leader X</span>
-              <strong id="leaderX">-</strong>
+            <div class="wide-readout">
+              <span class="label">제어 상태</span>
+              <strong id="controlStatus">-</strong>
             </div>
-            <div>
-              <span class="label">Leader Yaw</span>
-              <strong id="leaderYaw">-</strong>
+            <div class="wide-readout">
+              <span class="label">시뮬레이션 상태</span>
+              <strong id="simStatus">-</strong>
             </div>
           </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>물체 목록</h2>
+            <span id="cargoListState" class="pill neutral">0 items</span>
+          </div>
+          <ol id="cargoList" class="cargo-list">
+            <li class="empty-list">아직 파지 기록이 없습니다.</li>
+          </ol>
         </article>
       </section>
 
       <section class="health-strip">
         <div id="leaderLink" class="health-cell">Leader</div>
         <div id="followerLink" class="health-cell">Follower</div>
-        <div id="spacingState" class="health-cell">Spacing</div>
+        <div id="graspHealth" class="health-cell">Grasp</div>
         <div id="safetyOk" class="health-cell">Safety</div>
       </section>
     </main>

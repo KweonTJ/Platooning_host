@@ -187,6 +187,80 @@ canvas {
   border-radius: 6px;
 }
 
+.readout-grid .wide-readout {
+  grid-column: 1 / -1;
+  min-height: 96px;
+}
+
+.readout-grid small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.cargo-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cargo-item,
+.empty-list {
+  min-height: 58px;
+  padding: 12px;
+  background: var(--band);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.cargo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cargo-item strong,
+.cargo-item small {
+  display: block;
+}
+
+.cargo-item strong {
+  font-size: 18px;
+}
+
+.cargo-item small,
+.empty-list {
+  color: var(--muted);
+}
+
+.cargo-badge {
+  min-width: 58px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  text-align: center;
+  font-weight: 760;
+}
+
+.cargo-badge.ok {
+  color: #8ff0b4;
+  border-color: rgba(44, 195, 107, 0.5);
+}
+
+.cargo-badge.warn {
+  color: #ffd983;
+  border-color: rgba(240, 180, 41, 0.5);
+}
+
+.cargo-badge.bad {
+  color: #ffa0a0;
+  border-color: rgba(239, 91, 91, 0.5);
+}
+
 .health-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -278,6 +352,16 @@ canvas {
 
   .readout-grid > div {
     min-height: 92px;
+    padding: 10px;
+  }
+
+  .readout-grid .wide-readout {
+    min-height: 76px;
+  }
+
+  .cargo-item,
+  .empty-list {
+    min-height: 52px;
     padding: 10px;
   }
 

@@ -16,6 +16,10 @@ platooning_tablet_monitor:
     leader_heartbeat_topic: "/leader/heartbeat"
     leader_cmd_vel_topic: "/leader/cmd_vel"
     leader_odom_topic: "/leader/odom"
+    mp_control_status_topic: "/mp_control/status"
+    sim_pick_place_status_topic: "/mp_control/pick_place_status"
+    cargo_events_topic: "/cargo/events"
+    cargo_current_id_topic: "/cargo/current_id"
 
     follower_status_topic: "/follower/status"
     follower_safety_state_topic: "/follower/safety_state"
