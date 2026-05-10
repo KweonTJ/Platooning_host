@@ -2,6 +2,8 @@ platooning_tablet_monitor:
   ros__parameters:
     host: "0.0.0.0"
     port: 8080
+    simulation_domain_id: 10
+    follower_domain_id: 20
     target_spacing_m: 0.45
     heartbeat_timeout_s: 1.5
     follower_timeout_s: 2.0

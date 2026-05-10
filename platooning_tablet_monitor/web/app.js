@@ -117,7 +117,9 @@ function update(data) {
   const follower = getObject(data.follower);
   const health = getObject(data.health);
 
-  text("domain", server.ros_domain_id || "-");
+  text("hostDomain", server.host_domain_id || server.ros_domain_id || "-");
+  text("simulationDomain", server.simulation_domain_id);
+  text("followerDomain", server.follower_domain_id);
   text("clock", server.time_label);
 
   const overall = health.overall || "WAIT";

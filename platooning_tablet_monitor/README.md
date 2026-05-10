@@ -4,7 +4,8 @@ Tablet-friendly web monitor for the platooning host PC.
 
 ## Run
 
-Use the ROS domain that can see the bridged leader topics and follower topics.
+Use the host PC domain that can see the bridged leader topics and follower topics.
+The current temporary IDs are host `16`, simulation leader `10`, and follower `20`.
 
 ```bash
 export ROS_DOMAIN_ID=16

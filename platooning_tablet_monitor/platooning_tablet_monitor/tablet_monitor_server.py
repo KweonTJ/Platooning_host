@@ -46,6 +46,8 @@ class PlatooningTabletMonitor(Node):
 
         self.declare_parameter("host", "0.0.0.0")
         self.declare_parameter("port", 8080)
+        self.declare_parameter("simulation_domain_id", 10)
+        self.declare_parameter("follower_domain_id", 20)
         self.declare_parameter("target_spacing_m", 0.45)
         self.declare_parameter("heartbeat_timeout_s", 1.5)
         self.declare_parameter("follower_timeout_s", 2.0)
@@ -258,6 +260,9 @@ class PlatooningTabletMonitor(Node):
             "server": {
                 "time_unix": time.time(),
                 "time_label": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "host_domain_id": os.environ.get("ROS_DOMAIN_ID", ""),
+                "simulation_domain_id": int(self.get_parameter("simulation_domain_id").value),
+                "follower_domain_id": int(self.get_parameter("follower_domain_id").value),
                 "ros_domain_id": os.environ.get("ROS_DOMAIN_ID", ""),
                 "target_spacing_m": target_spacing,
             },
@@ -331,6 +336,13 @@ class PlatooningTabletMonitor(Node):
                 if parsed.path == "/api/config":
                     self._send_json({
                         "target_spacing_m": node._float_param("target_spacing_m"),
+                        "host_domain_id": os.environ.get("ROS_DOMAIN_ID", ""),
+                        "simulation_domain_id": int(
+                            node.get_parameter("simulation_domain_id").value
+                        ),
+                        "follower_domain_id": int(
+                            node.get_parameter("follower_domain_id").value
+                        ),
                         "ros_domain_id": os.environ.get("ROS_DOMAIN_ID", ""),
                     })
                     return

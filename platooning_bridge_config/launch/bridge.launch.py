@@ -31,7 +31,7 @@ def generate_launch_description():
             Node(
                 package="domain_bridge",
                 executable="domain_bridge",
-                name="leader_to_follower_bridge",
+                name="simulation_to_host_bridge",
                 output="screen",
                 arguments=[bridge_config],
             ),

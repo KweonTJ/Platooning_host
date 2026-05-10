@@ -4,7 +4,7 @@ Host-side ROS 2 workspace packages for platooning bridge and tablet monitoring.
 
 ## Packages
 
-- `platooning_bridge_config`: bridges leader topics from the leader domain to the follower domain.
+- `platooning_bridge_config`: bridges simulation/leader topics into the host monitor domain.
 - `platooning_tablet_monitor`: serves a tablet-friendly web dashboard for leader/follower state.
 
 ## Build
@@ -15,9 +15,18 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
 
+## Domain IDs
+
+The current domain IDs are temporary and can be changed later.
+
+- Simulation leader domain: `10`
+- Follower robot domain: `20`
+- Host PC / tablet monitor domain: `16`
+
 ## Run Bridge
 
-The current domain IDs are temporary.
+Run this on the host PC to mirror simulation leader topics from domain `10`
+into host domain `16`.
 
 ```bash
 export ROS_LOCALHOST_ONLY=0
@@ -28,8 +37,8 @@ ros2 launch platooning_bridge_config bridge.launch.py
 
 ## Run Tablet Monitor
 
-Run this in the domain that can see the bridged leader topics and follower topics.
-With the current temporary setup, use ROS_DOMAIN_ID=16.
+Run this on the host PC domain. With the current temporary setup, use
+`ROS_DOMAIN_ID=16`.
 
 ```bash
 export ROS_DOMAIN_ID=16
