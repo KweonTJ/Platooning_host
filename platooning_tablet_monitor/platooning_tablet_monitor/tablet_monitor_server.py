@@ -1,0 +1,392 @@
+import json
+import math
+import mimetypes
+import os
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+from threading import Lock
+from threading import Thread
+import time
+from urllib.parse import unquote
+from urllib.parse import urlparse
+
+from ament_index_python.packages import get_package_share_directory
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy
+from rclpy.qos import HistoryPolicy
+from rclpy.qos import QoSProfile
+from rclpy.qos import ReliabilityPolicy
+from std_msgs.msg import Bool
+from std_msgs.msg import Float32
+from std_msgs.msg import String
+
+
+def yaw_from_quaternion(q):
+    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    return math.atan2(siny_cosp, cosy_cosp)
+
+
+def finite_float(value):
+    if value is None:
+        return None
+    value = float(value)
+    if math.isfinite(value):
+        return value
+    return None
+
+
+class PlatooningTabletMonitor(Node):
+    def __init__(self):
+        super().__init__("platooning_tablet_monitor")
+
+        self.declare_parameter("host", "0.0.0.0")
+        self.declare_parameter("port", 8080)
+        self.declare_parameter("target_spacing_m", 0.45)
+        self.declare_parameter("heartbeat_timeout_s", 1.5)
+        self.declare_parameter("follower_timeout_s", 2.0)
+        self.declare_parameter("web_root", "")
+
+        self.declare_parameter("leader_task_state_topic", "/leader/task_state")
+        self.declare_parameter("leader_cargo_state_topic", "/leader/cargo_state")
+        self.declare_parameter("leader_follower_enable_topic", "/leader/follower_enable")
+        self.declare_parameter("leader_platoon_mode_topic", "/leader/platoon_mode")
+        self.declare_parameter("leader_heartbeat_topic", "/leader/heartbeat")
+        self.declare_parameter("leader_cmd_vel_topic", "/leader/cmd_vel")
+        self.declare_parameter("leader_odom_topic", "/leader/odom")
+
+        self.declare_parameter("follower_status_topic", "/follower/status")
+        self.declare_parameter("follower_safety_state_topic", "/follower/safety_state")
+        self.declare_parameter("follower_distance_error_topic", "/follower/distance_error")
+        self.declare_parameter("follower_target_visible_topic", "/follower/target_visible")
+        self.declare_parameter("follower_target_distance_topic", "/follower/target_distance")
+        self.declare_parameter("follower_target_offset_x_topic", "/follower/target_offset_x")
+
+        self._lock = Lock()
+        self._values = {}
+        self._server = None
+        self._server_thread = None
+
+        state_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        live_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+        )
+
+        self.create_subscription(
+            String,
+            self._str_param("leader_task_state_topic"),
+            lambda msg: self._set_value("leader_task_state", msg.data),
+            state_qos,
+        )
+        self.create_subscription(
+            String,
+            self._str_param("leader_cargo_state_topic"),
+            lambda msg: self._set_value("leader_cargo_state", msg.data),
+            state_qos,
+        )
+        self.create_subscription(
+            Bool,
+            self._str_param("leader_follower_enable_topic"),
+            lambda msg: self._set_value("leader_follower_enable", bool(msg.data)),
+            state_qos,
+        )
+        self.create_subscription(
+            String,
+            self._str_param("leader_platoon_mode_topic"),
+            lambda msg: self._set_value("leader_platoon_mode", msg.data),
+            state_qos,
+        )
+        self.create_subscription(
+            Bool,
+            self._str_param("leader_heartbeat_topic"),
+            lambda msg: self._set_value("leader_heartbeat", bool(msg.data)),
+            live_qos,
+        )
+        self.create_subscription(
+            Twist,
+            self._str_param("leader_cmd_vel_topic"),
+            self._leader_cmd_vel_callback,
+            live_qos,
+        )
+        self.create_subscription(
+            Odometry,
+            self._str_param("leader_odom_topic"),
+            self._leader_odom_callback,
+            live_qos,
+        )
+        self.create_subscription(
+            String,
+            self._str_param("follower_status_topic"),
+            lambda msg: self._set_value("follower_status", msg.data),
+            live_qos,
+        )
+        self.create_subscription(
+            String,
+            self._str_param("follower_safety_state_topic"),
+            lambda msg: self._set_value("follower_safety_state", msg.data),
+            live_qos,
+        )
+        self.create_subscription(
+            Float32,
+            self._str_param("follower_distance_error_topic"),
+            lambda msg: self._set_value("follower_distance_error_m", finite_float(msg.data)),
+            live_qos,
+        )
+        self.create_subscription(
+            Bool,
+            self._str_param("follower_target_visible_topic"),
+            lambda msg: self._set_value("follower_target_visible", bool(msg.data)),
+            live_qos,
+        )
+        self.create_subscription(
+            Float32,
+            self._str_param("follower_target_distance_topic"),
+            lambda msg: self._set_value("follower_target_distance_m", finite_float(msg.data)),
+            live_qos,
+        )
+        self.create_subscription(
+            Float32,
+            self._str_param("follower_target_offset_x_topic"),
+            lambda msg: self._set_value("follower_target_offset_x", finite_float(msg.data)),
+            live_qos,
+        )
+
+        self._start_http_server()
+
+    def _str_param(self, name):
+        return str(self.get_parameter(name).value)
+
+    def _float_param(self, name):
+        return float(self.get_parameter(name).value)
+
+    def _set_value(self, key, value):
+        with self._lock:
+            self._values[key] = {
+                "value": value,
+                "stamp": time.monotonic(),
+            }
+
+    def _leader_cmd_vel_callback(self, msg):
+        self._set_value(
+            "leader_cmd_vel",
+            {
+                "linear_x": finite_float(msg.linear.x),
+                "angular_z": finite_float(msg.angular.z),
+            },
+        )
+
+    def _leader_odom_callback(self, msg):
+        pose = msg.pose.pose
+        twist = msg.twist.twist
+        self._set_value(
+            "leader_odom",
+            {
+                "x": finite_float(pose.position.x),
+                "y": finite_float(pose.position.y),
+                "yaw": finite_float(yaw_from_quaternion(pose.orientation)),
+                "linear_x": finite_float(twist.linear.x),
+                "angular_z": finite_float(twist.angular.z),
+            },
+        )
+
+    def _value(self, values, key):
+        item = values.get(key)
+        if item is None:
+            return None
+        return item["value"]
+
+    def _age(self, values, key, now_monotonic):
+        item = values.get(key)
+        if item is None:
+            return None
+        return max(0.0, now_monotonic - item["stamp"])
+
+    def snapshot(self):
+        now_monotonic = time.monotonic()
+        with self._lock:
+            values = dict(self._values)
+
+        target_spacing = self._float_param("target_spacing_m")
+        heartbeat_timeout = self._float_param("heartbeat_timeout_s")
+        follower_timeout = self._float_param("follower_timeout_s")
+        heartbeat_age = self._age(values, "leader_heartbeat", now_monotonic)
+        follower_status_age = self._age(values, "follower_status", now_monotonic)
+        follower_safety_age = self._age(values, "follower_safety_state", now_monotonic)
+        follower_age_candidates = [
+            age for age in (follower_status_age, follower_safety_age) if age is not None
+        ]
+        follower_age = min(follower_age_candidates) if follower_age_candidates else None
+
+        distance_error = self._value(values, "follower_distance_error_m")
+        target_distance = self._value(values, "follower_target_distance_m")
+        if distance_error is None and target_distance is not None:
+            distance_error = target_distance - target_spacing
+
+        leader_link = heartbeat_age is not None and heartbeat_age <= heartbeat_timeout
+        follower_link = follower_age is not None and follower_age <= follower_timeout
+        target_visible = self._value(values, "follower_target_visible")
+        spacing_good = (
+            distance_error is not None and abs(float(distance_error)) <= 0.05
+        )
+        safety_state = self._value(values, "follower_safety_state")
+        safety_ok = safety_state in (None, "SAFE", "STOPPED")
+        platoon_active = (
+            self._value(values, "leader_follower_enable") is True and
+            self._value(values, "leader_platoon_mode") == "FOLLOW"
+        )
+
+        if leader_link and follower_link and safety_ok:
+            overall = "OK"
+        elif leader_link or follower_link:
+            overall = "WARN"
+        else:
+            overall = "WAIT"
+
+        return {
+            "server": {
+                "time_unix": time.time(),
+                "time_label": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "ros_domain_id": os.environ.get("ROS_DOMAIN_ID", ""),
+                "target_spacing_m": target_spacing,
+            },
+            "leader": {
+                "task_state": self._value(values, "leader_task_state"),
+                "cargo_state": self._value(values, "leader_cargo_state"),
+                "follower_enable": self._value(values, "leader_follower_enable"),
+                "platoon_mode": self._value(values, "leader_platoon_mode"),
+                "heartbeat_age_s": heartbeat_age,
+                "cmd_vel": self._value(values, "leader_cmd_vel"),
+                "odom": self._value(values, "leader_odom"),
+            },
+            "follower": {
+                "status": self._value(values, "follower_status"),
+                "safety_state": safety_state,
+                "distance_error_m": distance_error,
+                "target_distance_m": target_distance,
+                "target_visible": target_visible,
+                "target_offset_x": self._value(values, "follower_target_offset_x"),
+                "status_age_s": follower_status_age,
+                "safety_age_s": follower_safety_age,
+            },
+            "health": {
+                "overall": overall,
+                "leader_link": leader_link,
+                "follower_link": follower_link,
+                "platoon_active": platoon_active,
+                "target_visible": target_visible is True,
+                "spacing_good": spacing_good,
+                "safety_ok": safety_ok,
+            },
+            "ages": {
+                key: self._age(values, key, now_monotonic)
+                for key in sorted(values.keys())
+            },
+        }
+
+    def _start_http_server(self):
+        host = self._str_param("host")
+        port = int(self.get_parameter("port").value)
+        web_root_param = self._str_param("web_root")
+        if web_root_param:
+            web_root = Path(web_root_param).expanduser().resolve()
+        else:
+            web_root = Path(
+                get_package_share_directory("platooning_tablet_monitor")
+            ).joinpath("web").resolve()
+
+        handler = self._make_handler(web_root)
+        self._server = ThreadingHTTPServer((host, port), handler)
+        self._server_thread = Thread(
+            target=self._server.serve_forever,
+            daemon=True,
+        )
+        self._server_thread.start()
+        self.get_logger().info(
+            f"tablet monitor serving http://{host}:{port} from {web_root}"
+        )
+
+    def _make_handler(self, web_root):
+        node = self
+
+        class MonitorRequestHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                parsed = urlparse(self.path)
+                if parsed.path == "/api/status":
+                    self._send_json(node.snapshot())
+                    return
+                if parsed.path == "/api/config":
+                    self._send_json({
+                        "target_spacing_m": node._float_param("target_spacing_m"),
+                        "ros_domain_id": os.environ.get("ROS_DOMAIN_ID", ""),
+                    })
+                    return
+                self._send_static(parsed.path)
+
+            def log_message(self, fmt, *args):
+                node.get_logger().debug(fmt % args)
+
+            def _send_json(self, payload):
+                body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _send_static(self, request_path):
+                if request_path in ("", "/"):
+                    relative = "index.html"
+                else:
+                    relative = unquote(request_path.lstrip("/"))
+                candidate = web_root.joinpath(relative).resolve()
+                if not str(candidate).startswith(str(web_root)) or not candidate.is_file():
+                    self.send_error(404)
+                    return
+
+                content_type = mimetypes.guess_type(str(candidate))[0]
+                if content_type is None:
+                    content_type = "application/octet-stream"
+                body = candidate.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        return MonitorRequestHandler
+
+    def destroy_node(self):
+        if self._server is not None:
+            self._server.shutdown()
+            self._server.server_close()
+        super().destroy_node()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = PlatooningTabletMonitor()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,23 @@
+platooning_tablet_monitor:
+  ros__parameters:
+    host: "0.0.0.0"
+    port: 8080
+    target_spacing_m: 0.45
+    heartbeat_timeout_s: 1.5
+    follower_timeout_s: 2.0
+    web_root: ""
+
+    leader_task_state_topic: "/leader/task_state"
+    leader_cargo_state_topic: "/leader/cargo_state"
+    leader_follower_enable_topic: "/leader/follower_enable"
+    leader_platoon_mode_topic: "/leader/platoon_mode"
+    leader_heartbeat_topic: "/leader/heartbeat"
+    leader_cmd_vel_topic: "/leader/cmd_vel"
+    leader_odom_topic: "/leader/odom"
+
+    follower_status_topic: "/follower/status"
+    follower_safety_state_topic: "/follower/safety_state"
+    follower_distance_error_topic: "/follower/distance_error"
+    follower_target_visible_topic: "/follower/target_visible"
+    follower_target_distance_topic: "/follower/target_distance"
+    follower_target_offset_x_topic: "/follower/target_offset_x"
