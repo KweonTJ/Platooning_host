@@ -302,9 +302,11 @@ class PlatooningTabletMonitor(Node):
         if web_root_param:
             web_root = Path(web_root_param).expanduser().resolve()
         else:
-            web_root = Path(
+            share_root = Path(
                 get_package_share_directory("platooning_tablet_monitor")
             ).joinpath("web").resolve()
+            source_root = Path(__file__).resolve().parents[1].joinpath("web").resolve()
+            web_root = share_root if share_root.joinpath("index.html").is_file() else source_root
 
         handler = self._make_handler(web_root)
         self._server = ThreadingHTTPServer((host, port), handler)
@@ -351,8 +353,12 @@ class PlatooningTabletMonitor(Node):
                     relative = "index.html"
                 else:
                     relative = unquote(request_path.lstrip("/"))
-                candidate = web_root.joinpath(relative).resolve()
-                if not str(candidate).startswith(str(web_root)) or not candidate.is_file():
+                requested = Path(relative)
+                if requested.is_absolute() or ".." in requested.parts:
+                    self.send_error(404)
+                    return
+                candidate = web_root.joinpath(requested).resolve()
+                if not candidate.is_file():
                     self.send_error(404)
                     return
 

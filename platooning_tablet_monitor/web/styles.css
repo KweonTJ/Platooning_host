@@ -221,9 +221,79 @@ canvas {
 
 @media (max-width: 900px) {
   .shell {
-    padding: 14px;
+    padding: 12px;
   }
 
+  .topbar {
+    align-items: center;
+    padding: 10px 0 12px;
+  }
+
+  h1 {
+    font-size: 26px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  .pill {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .metric {
+    min-height: 104px;
+    padding: 12px;
+  }
+
+  .metric strong,
+  .readout-grid strong {
+    font-size: 22px;
+  }
+
+  .split {
+    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    gap: 10px;
+  }
+
+  .panel {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  canvas {
+    height: 214px;
+  }
+
+  .readout-grid {
+    gap: 10px;
+  }
+
+  .readout-grid > div {
+    min-height: 92px;
+    padding: 10px;
+  }
+
+  .health-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .health-cell {
+    min-height: 52px;
+    padding: 8px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 620px) {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
@@ -233,13 +303,5 @@ canvas {
   .split,
   .health-strip {
     grid-template-columns: 1fr;
-  }
-
-  .metric {
-    min-height: 108px;
-  }
-
-  .panel {
-    min-height: 0;
   }
 }

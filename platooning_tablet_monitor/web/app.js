@@ -3,6 +3,10 @@ const spacingHistory = [];
 
 const $ = (id) => document.getElementById(id);
 
+function getObject(value) {
+  return value && typeof value === "object" ? value : {};
+}
+
 function fmt(value, digits = 2, suffix = "") {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "-";
@@ -11,17 +15,27 @@ function fmt(value, digits = 2, suffix = "") {
 }
 
 function text(id, value) {
-  $(id).textContent = value === null || value === undefined || value === "" ? "-" : value;
+  const el = $(id);
+  if (!el) {
+    return;
+  }
+  el.textContent = value === null || value === undefined || value === "" ? "-" : value;
 }
 
 function setPill(id, label, state) {
   const el = $(id);
+  if (!el) {
+    return;
+  }
   el.textContent = label;
   el.className = `pill ${state}`;
 }
 
 function setHealth(id, label, ok, warnWhenMissing = true) {
   const el = $(id);
+  if (!el) {
+    return;
+  }
   let state = "bad";
   if (ok === true) {
     state = "ok";
@@ -34,7 +48,13 @@ function setHealth(id, label, ok, warnWhenMissing = true) {
 
 function drawChart() {
   const canvas = $("spacingChart");
+  if (!canvas) {
+    return;
+  }
   const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return;
+  }
   const width = canvas.width;
   const height = canvas.height;
   ctx.clearRect(0, 0, width, height);
@@ -91,27 +111,33 @@ function drawChart() {
 }
 
 function update(data) {
-  text("domain", data.server.ros_domain_id || "-");
-  text("clock", data.server.time_label);
+  data = getObject(data);
+  const server = getObject(data.server);
+  const leader = getObject(data.leader);
+  const follower = getObject(data.follower);
+  const health = getObject(data.health);
 
-  const overall = data.health.overall || "WAIT";
+  text("domain", server.ros_domain_id || "-");
+  text("clock", server.time_label);
+
+  const overall = health.overall || "WAIT";
   setPill("overall", overall, overall === "OK" ? "ok" : overall === "WARN" ? "warn" : "neutral");
 
-  const linkOk = data.health.leader_link && data.health.follower_link;
+  const linkOk = health.leader_link && health.follower_link;
   setPill("linkState", linkOk ? "Linked" : "Link Check", linkOk ? "ok" : "warn");
 
-  text("leaderTask", data.leader.task_state);
-  text("leaderCargo", `cargo ${data.leader.cargo_state || "-"}`);
-  text("platoonMode", data.leader.platoon_mode);
-  text("followerEnable", `enable ${data.leader.follower_enable === true ? "true" : "false"}`);
-  text("followerStatus", data.follower.status);
-  text("safetyState", `safety ${data.follower.safety_state || "-"}`);
+  text("leaderTask", leader.task_state);
+  text("leaderCargo", `cargo ${leader.cargo_state || "-"}`);
+  text("platoonMode", leader.platoon_mode);
+  text("followerEnable", `enable ${leader.follower_enable === true ? "true" : "false"}`);
+  text("followerStatus", follower.status);
+  text("safetyState", `safety ${follower.safety_state || "-"}`);
 
-  const spacingError = data.follower.distance_error_m;
+  const spacingError = follower.distance_error_m;
   text("spacingError", fmt(spacingError, 3, " m"));
   text(
     "targetDistance",
-    `target ${fmt(data.server.target_spacing_m, 2, " m")} · measured ${fmt(data.follower.target_distance_m, 2, " m")}`,
+    `target ${fmt(server.target_spacing_m, 2, " m")} · measured ${fmt(follower.target_distance_m, 2, " m")}`,
   );
 
   if (spacingError !== null && spacingError !== undefined) {
@@ -124,26 +150,26 @@ function update(data) {
 
   setPill(
     "targetVisible",
-    data.follower.target_visible === true ? "Target Visible" : "Target Lost",
-    data.follower.target_visible === true ? "ok" : "warn",
+    follower.target_visible === true ? "Target Visible" : "Target Lost",
+    follower.target_visible === true ? "ok" : "warn",
   );
   setPill(
     "activeState",
-    data.health.platoon_active ? "Following" : "Standby",
-    data.health.platoon_active ? "ok" : "neutral",
+    health.platoon_active ? "Following" : "Standby",
+    health.platoon_active ? "ok" : "neutral",
   );
 
-  const cmd = data.leader.cmd_vel || {};
-  const odom = data.leader.odom || {};
+  const cmd = getObject(leader.cmd_vel);
+  const odom = getObject(leader.odom);
   text("leaderLinear", fmt(cmd.linear_x, 2, " m/s"));
   text("leaderAngular", fmt(cmd.angular_z, 2, " rad/s"));
   text("leaderX", fmt(odom.x, 2, " m"));
   text("leaderYaw", fmt(odom.yaw, 2, " rad"));
 
-  setHealth("leaderLink", "Leader", data.health.leader_link);
-  setHealth("followerLink", "Follower", data.health.follower_link);
-  setHealth("spacingState", "Spacing", data.health.spacing_good);
-  setHealth("safetyOk", "Safety", data.health.safety_ok);
+  setHealth("leaderLink", "Leader", health.leader_link);
+  setHealth("followerLink", "Follower", health.follower_link);
+  setHealth("spacingState", "Spacing", health.spacing_good);
+  setHealth("safetyOk", "Safety", health.safety_ok);
 }
 
 async function poll() {

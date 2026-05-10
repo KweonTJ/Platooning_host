@@ -7,7 +7,7 @@ Tablet-friendly web monitor for the platooning host PC.
 Use the ROS domain that can see the bridged leader topics and follower topics.
 
 ```bash
-export ROS_DOMAIN_ID=20
+export ROS_DOMAIN_ID=16
 export ROS_LOCALHOST_ONLY=0
 
 source /opt/ros/humble/setup.bash

@@ -29,10 +29,10 @@ ros2 launch platooning_bridge_config bridge.launch.py
 ## Run Tablet Monitor
 
 Run this in the domain that can see the bridged leader topics and follower topics.
-With the current temporary setup, use the follower domain.
+With the current temporary setup, use ROS_DOMAIN_ID=16.
 
 ```bash
-export ROS_DOMAIN_ID=20
+export ROS_DOMAIN_ID=16
 export ROS_LOCALHOST_ONLY=0
 source /opt/ros/humble/setup.bash
 source ~/platooning_host_ws/install/setup.bash
