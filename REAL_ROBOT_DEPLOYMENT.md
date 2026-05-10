@@ -21,13 +21,13 @@
 
 ## ROS 도메인 ID
 
-현재 도메인 ID는 임시값이다. 추후 실제 네트워크 구성에 맞게 수정할 수 있지만,
+현재 도메인 ID는 SSH 설정에 맞춘 실제 로봇 기준값이다. 추후 네트워크 구성 변경 시 수정할 수 있지만,
 한 번의 실행에서는 세 장비가 아래 기준을 동일하게 사용해야 한다.
 
 | 도메인 | 현재 ID | 사용 대상 |
 | --- | ---: | --- |
-| 리더 로봇 도메인 | `10` | 리더 로봇, 리더 상태 토픽, 리더 명령 토픽 |
-| 팔로워 로봇 도메인 | `20` | 팔로워 비전, 플래투닝 제어, 안전 제어, `/cmd_vel` |
+| 리더 로봇 도메인 | `25` | 리더 로봇, 리더 상태 토픽, 리더 명령 토픽 |
+| 팔로워 로봇 도메인 | `73` | 팔로워 비전, 플래투닝 제어, 안전 제어, `/cmd_vel` |
 | 호스트 모니터링 도메인 | `16` | 호스트 브릿지, 태블릿 웹 대시보드 |
 
 모든 장비에서 ROS 실행 전에 아래 값을 설정한다.
@@ -116,7 +116,7 @@ colcon build --symlink-install
 
 ## 1. 호스트 PC 실행
 
-호스트 PC는 리더 도메인 `10`과 팔로워 도메인 `20`의 토픽을 호스트 도메인
+호스트 PC는 리더 도메인 `25`와 팔로워 도메인 `73`의 토픽을 호스트 도메인
 `16`으로 가져오고, 태블릿에서 볼 수 있는 웹 대시보드를 띄운다.
 
 터미널 1에서 브릿지를 실행한다.
@@ -131,8 +131,8 @@ ros2 launch platooning_bridge_config bridge.launch.py
 이 브릿지는 아래 두 경로를 동시에 연결한다.
 
 ```text
-리더 도메인 10 -> 호스트 도메인 16
-팔로워 도메인 20 -> 호스트 도메인 16
+리더 도메인 25 -> 호스트 도메인 16
+팔로워 도메인 73 -> 호스트 도메인 16
 ```
 
 터미널 2에서 태블릿 모니터를 실행한다.
@@ -157,55 +157,52 @@ ros2 launch platooning_tablet_monitor tablet_monitor.launch.py host:=0.0.0.0 por
 웹 상단에는 아래와 같이 표시되어야 한다.
 
 ```text
-Host domain 16 · Simulation 10 · Follower 20
+Host domain 16 · Leader 25 · Follower 73
 ```
 
-여기서 `Simulation 10`은 현재 리더 도메인으로 사용 중인 값이다. 실제 리더 로봇도
-동일하게 도메인 `10`을 사용한다.
+여기서 `Leader 25`는 현재 리더 도메인으로 사용 중인 값이다. 실제 리더 로봇도
+동일하게 도메인 `25`를 사용한다.
 
 ## 2. 팔로워 로봇 실행
 
-팔로워 로봇은 도메인 `20`에서 실행한다. 팔로워는 리더 상태 토픽을 받아 플래투닝
-상태를 판단하고, 카메라로 리더 마커를 추적한 뒤 안전 노드를 거쳐 최종 `/cmd_vel`을
-발행한다.
+팔로워 로봇은 도메인 `73`에서 실행한다. 팔로워는 리더 상태 토픽과 `/leader/odom`을
+받아 플래투닝 상태를 판단하고, 팔로워 `/odom`과 비교해 거리 제어를 수행한 뒤
+안전 노드를 거쳐 최종 `/cmd_vel`을 발행한다.
 
 ```bash
-export ROS_DOMAIN_ID=20
+export ROS_DOMAIN_ID=73
 export ROS_LOCALHOST_ONLY=0
 source /opt/ros/humble/setup.bash
 source ~/Turtlebot3_Platooning/install/setup.bash
 ros2 launch follower_bringup follower_system.launch.py start_rviz:=false
 ```
 
-카메라 없이 노드 구동만 확인하려면 다음처럼 실행한다.
+현재 기본 실행은 카메라/vision 없이 odometry 기반으로 동작한다.
 
 ```bash
-ros2 launch follower_bringup follower_system.launch.py use_camera:=false start_rviz:=false
+ros2 launch follower_bringup follower_system.launch.py start_rviz:=false
 ```
 
-카메라 장치 번호를 지정해야 할 경우:
+선택적으로 vision 노드를 다시 켜야 할 경우:
 
 ```bash
-ros2 launch follower_bringup follower_system.launch.py video_device:=/dev/video0 start_rviz:=false
+ros2 launch follower_bringup follower_system.launch.py use_camera:=true start_vision:=true video_device:=/dev/video0 start_rviz:=false
 ```
 
 팔로워 현재 설정은 다음과 같다.
 
-- 리더 마커: ArUco
-- 마커 ID: `0`
-- 마커 사전: `DICT_4X4_50`
-- 마커 크기: `0.10 m`
+- 기본 플래투닝 기준: `/leader/odom` + 팔로워 `/odom`
 - 목표 거리: `0.45 m`
 - `follower_platooning`은 `/follower/cmd_vel_raw`를 발행한다.
 - 최종 `/cmd_vel`은 `follower_safety`만 발행한다.
 
 ## 3. 리더 로봇 실행
 
-리더 로봇은 도메인 `10`에서 실행한다. 리더는 매니퓰레이터 하드웨어, 카메라,
+리더 로봇은 도메인 `25`에서 실행한다. 리더는 매니퓰레이터 하드웨어, 카메라,
 CSRT/IBVS 인식, `mp_control`, 리더 상태 관리자, 비콘, 리더-팔로워 브릿지를 실행한다.
 
 ```bash
-export ROS_DOMAIN_ID=10
+export ROS_DOMAIN_ID=25
 export ROS_LOCALHOST_ONLY=0
 source /opt/ros/humble/setup.bash
 source ~/turtlebot3_ws/install/setup.bash
@@ -237,9 +234,9 @@ ros2 launch mp_control real_pick_place.launch.py start_rviz:=false start_domain_
 - `real_pick_place.launch.py`는 실제 로봇용 pick-and-place 통합 런치이다.
 - 실제 로봇 기본 인식은 depth-first 초기 검출 기준이다.
 - 엔드이펙터 카메라는 근거리 보정용이며, 주 검출기는 전방 RGB-D 카메라이다.
-- `start_domain_bridge:=true`는 리더 도메인 `10`의 `/leader/*` 토픽을 팔로워
-  도메인 `20`으로 전달한다.
-- 호스트 PC는 별도로 리더 도메인 `10`과 팔로워 도메인 `20`을 호스트 도메인
+- `start_domain_bridge:=true`는 리더 도메인 `25`의 `/leader/*` 토픽을 팔로워
+  도메인 `73`으로 전달한다.
+- 호스트 PC는 별도로 리더 도메인 `25`와 팔로워 도메인 `73`을 호스트 도메인
   `16`으로 가져온다.
 
 ## 실행 중 확인
@@ -265,7 +262,7 @@ curl http://localhost:8080/api/status
 ### 팔로워 로봇 확인
 
 ```bash
-export ROS_DOMAIN_ID=20
+export ROS_DOMAIN_ID=73
 source /opt/ros/humble/setup.bash
 source ~/Turtlebot3_Platooning/install/setup.bash
 ros2 topic echo /leader/heartbeat --once
@@ -276,7 +273,7 @@ ros2 topic echo /cmd_vel --once
 ### 리더 로봇 확인
 
 ```bash
-export ROS_DOMAIN_ID=10
+export ROS_DOMAIN_ID=25
 source /opt/ros/humble/setup.bash
 source ~/turtlebot3_ws/install/setup.bash
 ros2 topic echo /leader/heartbeat --once
@@ -333,7 +330,7 @@ http://<host-pc-ip>:8080
 
 ### 팔로워가 움직이지 않는 경우
 
-팔로워 도메인 `20`에서 아래 토픽을 확인한다.
+팔로워 도메인 `73`에서 아래 토픽을 확인한다.
 
 ```bash
 ros2 topic echo /leader/follower_enable --once

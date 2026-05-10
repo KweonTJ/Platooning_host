@@ -119,8 +119,8 @@ class PlatooningTabletMonitor(Node):
 
         self.declare_parameter("host", "0.0.0.0")
         self.declare_parameter("port", 8080)
-        self.declare_parameter("simulation_domain_id", 10)
-        self.declare_parameter("follower_domain_id", 20)
+        self.declare_parameter("simulation_domain_id", 25)
+        self.declare_parameter("follower_domain_id", 73)
         self.declare_parameter("target_spacing_m", 0.45)
         self.declare_parameter("heartbeat_timeout_s", 1.5)
         self.declare_parameter("follower_timeout_s", 2.0)

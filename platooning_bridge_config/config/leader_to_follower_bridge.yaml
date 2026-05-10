@@ -1,5 +1,5 @@
 name: simulation_to_host_bridge
-from_domain: 10
+from_domain: 25
 to_domain: 16
 
 topics:
