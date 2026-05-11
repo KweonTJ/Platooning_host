@@ -10,7 +10,7 @@
     <main class="shell">
       <header class="topbar">
         <div>
-          <h1>작업 모니터</h1>
+          <h1>작업 영상 모니터</h1>
           <p id="subtitle">
             Host <span id="hostDomain">-</span> ·
             Leader <span id="simulationDomain">-</span> ·
@@ -24,62 +24,59 @@
         </div>
       </header>
 
-      <section class="metrics">
-        <article class="metric">
-          <span class="label">물체 접근</span>
-          <strong id="approachState">-</strong>
-          <small id="taskStage">stage -</small>
-        </article>
-        <article class="metric">
-          <span class="label">파지 상태</span>
-          <strong id="graspState">-</strong>
-          <small id="leaderCargo">cargo -</small>
-        </article>
-        <article class="metric">
-          <span class="label">파지 개수</span>
-          <strong id="pickedCount">0</strong>
-          <small id="placedCount">placed 0</small>
-        </article>
-        <article class="metric">
-          <span class="label">현재 물체</span>
-          <strong id="currentCargo">-</strong>
-          <small id="lastCargoEvent">event -</small>
-        </article>
-      </section>
-
-      <section class="ops-panel">
-        <div class="panel-head">
-          <h2>운용 상태</h2>
-          <span id="batteryState" class="pill neutral">Battery Check</span>
-        </div>
-        <div class="ops-grid">
-          <div>
-            <span class="label">리더 속도</span>
-            <strong id="leaderSpeed">-</strong>
-            <small id="leaderAngular">angular -</small>
-          </div>
-          <div>
-            <span class="label">팔로워 속도</span>
-            <strong id="followerSpeed">-</strong>
-            <small id="followerAngular">angular -</small>
-          </div>
-          <div>
-            <span class="label">리더 배터리</span>
-            <strong id="leaderBattery">-</strong>
-            <small id="leaderBatteryMeta">voltage -</small>
-          </div>
-          <div>
-            <span class="label">팔로워 배터리</span>
-            <strong id="followerBattery">-</strong>
-            <small id="followerBatteryMeta">voltage -</small>
-          </div>
-        </div>
-      </section>
-
-      <section class="split">
-        <article class="panel">
+      <section class="status-row">
+        <section class="panel overview-panel">
           <div class="panel-head">
-            <h2>작업 진행</h2>
+            <h2>핵심 상태</h2>
+            <span id="batteryState" class="pill neutral">Battery Check</span>
+          </div>
+          <div class="overview">
+            <article class="metric emphasis">
+              <span class="label">물체 접근</span>
+              <strong id="approachState">-</strong>
+              <small id="taskStage">stage -</small>
+            </article>
+            <article class="metric emphasis">
+              <span class="label">파지 상태</span>
+              <strong id="graspState">-</strong>
+              <small id="leaderCargo">cargo -</small>
+            </article>
+            <article class="metric">
+              <span class="label">파지 개수</span>
+              <strong id="pickedCount">0</strong>
+              <small id="placedCount">placed 0</small>
+            </article>
+            <article class="metric">
+              <span class="label">현재 물체</span>
+              <strong id="currentCargo">-</strong>
+              <small id="lastCargoEvent">event -</small>
+            </article>
+            <article class="metric compact">
+              <span class="label">영상 상태</span>
+              <strong id="videoSummary">-</strong>
+              <small id="videoSummaryMeta">streams -</small>
+            </article>
+            <article class="metric compact">
+              <span class="label">안전 상태</span>
+              <strong id="safetySummary">-</strong>
+              <small id="safetySummaryMeta">follower -</small>
+            </article>
+            <article class="metric compact">
+              <span class="label">리더 배터리</span>
+              <strong id="leaderBattery">-</strong>
+              <small id="leaderBatteryMeta">voltage -</small>
+            </article>
+            <article class="metric compact">
+              <span class="label">팔로워 배터리</span>
+              <strong id="followerBattery">-</strong>
+              <small id="followerBatteryMeta">voltage -</small>
+            </article>
+          </div>
+        </section>
+
+        <article class="panel state-panel">
+          <div class="panel-head">
+            <h2>작업/주행 상태</h2>
             <span id="activeState" class="pill neutral">Standby</span>
           </div>
           <div class="readout-grid">
@@ -92,26 +89,114 @@
               <strong id="platoonMode">-</strong>
               <small id="followerEnable">enable -</small>
             </div>
-            <div class="wide-readout">
-              <span class="label">제어 상태</span>
-              <strong id="controlStatus">-</strong>
+            <div>
+              <span class="label">리더 속도</span>
+              <strong id="leaderSpeed">-</strong>
+              <small id="leaderAngular">angular -</small>
             </div>
-            <div class="wide-readout">
-              <span class="label">시뮬레이션 상태</span>
-              <strong id="simStatus">-</strong>
+            <div>
+              <span class="label">팔로워 속도</span>
+              <strong id="followerSpeed">-</strong>
+              <small id="followerAngular">angular -</small>
             </div>
           </div>
         </article>
+      </section>
 
-        <article class="panel">
-          <div class="panel-head">
-            <h2>물체 목록</h2>
-            <span id="cargoListState" class="pill neutral">0 items</span>
-          </div>
-          <ol id="cargoList" class="cargo-list">
-            <li class="empty-list">아직 파지 기록이 없습니다.</li>
-          </ol>
-        </article>
+      <section class="video-workbench">
+        <div class="video-grid">
+          <article class="video-panel video-tile">
+            <div class="panel-head">
+              <h2>작업 인식 영상</h2>
+              <span id="leaderDebugVideoState" class="pill neutral">No Frame</span>
+            </div>
+            <div class="video-frame">
+              <img id="leaderDebugVideo" src="/stream/leader_debug" alt="작업 인식 영상">
+              <div id="leaderDebugOverlay" class="video-overlay">waiting for CSRT debug image</div>
+            </div>
+            <div class="video-meta">
+              <span id="leaderDebugTopic">/hybrid_csrt_ibvs/debug_image</span>
+              <span id="controlStatus">-</span>
+            </div>
+          </article>
+
+          <article class="video-panel video-tile">
+            <div class="panel-head">
+              <h2>그리퍼 근접</h2>
+              <span id="eefDebugVideoState" class="pill neutral">No Frame</span>
+            </div>
+            <div class="video-frame">
+              <img id="eefDebugVideo" src="/stream/eef_debug" alt="그리퍼 근접 영상">
+              <div id="eefDebugOverlay" class="video-overlay">waiting for EEF debug image</div>
+            </div>
+            <div class="video-meta">
+              <span id="eefDebugTopic">/eef_hybrid_csrt_ibvs/debug_image</span>
+            </div>
+          </article>
+
+          <article class="video-panel video-tile">
+            <div class="panel-head">
+              <h2>전방 원본</h2>
+              <span id="leaderRawVideoState" class="pill neutral">No Frame</span>
+            </div>
+            <div class="video-frame">
+              <img id="leaderRawVideo" src="/stream/leader_raw" alt="전방 원본 영상">
+              <div id="leaderRawOverlay" class="video-overlay">waiting for front camera</div>
+            </div>
+            <div class="video-meta">
+              <span id="leaderRawTopic">/camera/color/image_raw</span>
+            </div>
+          </article>
+
+          <article class="video-panel video-tile">
+            <div class="panel-head">
+              <h2>EEF 원본</h2>
+              <span id="eefRawVideoState" class="pill neutral">No Frame</span>
+            </div>
+            <div class="video-frame">
+              <img id="eefRawVideo" src="/stream/eef_raw" alt="EEF 원본 영상">
+              <div id="eefRawOverlay" class="video-overlay">waiting for EEF camera</div>
+            </div>
+            <div class="video-meta">
+              <span id="eefRawTopic">/eef_camera/image_raw</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="workbench-side">
+          <article class="panel object-panel">
+            <div class="panel-head">
+              <h2>물체 목록</h2>
+              <span id="cargoListState" class="pill neutral">0 items</span>
+            </div>
+            <ol id="cargoList" class="cargo-list">
+              <li class="empty-list">아직 파지 기록이 없습니다.</li>
+            </ol>
+          </article>
+
+          <article class="panel graph-panel">
+            <div class="panel-head">
+              <h2>실시간 선 그래프</h2>
+              <span id="graphState" class="pill neutral">Collecting</span>
+            </div>
+            <div class="charts-grid">
+              <div class="chart-card">
+                <div class="chart-head">
+                  <span>속도</span>
+                  <small id="speedChartValue">L - · F -</small>
+                </div>
+                <canvas id="speedChart" width="360" height="110"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-head">
+                  <span>차간 오차</span>
+                  <small id="spacingChartValue">-</small>
+                </div>
+                <canvas id="spacingChart" width="360" height="110"></canvas>
+              </div>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section class="health-strip">

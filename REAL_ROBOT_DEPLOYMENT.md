@@ -192,7 +192,7 @@ ros2 launch follower_bringup follower_system.launch.py use_camera:=true start_vi
 팔로워 현재 설정은 다음과 같다.
 
 - 기본 플래투닝 기준: `/leader/odom` + 팔로워 `/odom`
-- 목표 거리: `0.45 m`
+- 목표 거리: `0.47 m`
 - `follower_platooning`은 `/follower/cmd_vel_raw`를 발행한다.
 - 최종 `/cmd_vel`은 `follower_safety`만 발행한다.
 

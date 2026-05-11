@@ -6,6 +6,7 @@ from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from threading import Event
 from threading import Lock
 from threading import Thread
 import time
@@ -13,8 +14,10 @@ from urllib.parse import unquote
 from urllib.parse import urlparse
 
 from ament_index_python.packages import get_package_share_directory
+import cv2
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy
@@ -22,6 +25,7 @@ from rclpy.qos import HistoryPolicy
 from rclpy.qos import QoSProfile
 from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import BatteryState
+from sensor_msgs.msg import Image
 from std_msgs.msg import Bool
 from std_msgs.msg import Float32
 from std_msgs.msg import String
@@ -113,6 +117,94 @@ def classify_task(mp_status, sim_status, leader_task, cargo_state):
     }
 
 
+class VideoStreamBuffer:
+    def __init__(self, key, label, topic):
+        self.key = key
+        self.label = label
+        self.topic = topic
+        self._lock = Lock()
+        self._event = Event()
+        self._jpeg = None
+        self._stamp = None
+        self._frame_count = 0
+        self._last_error = None
+
+    def update(self, jpeg):
+        with self._lock:
+            self._jpeg = bytes(jpeg)
+            self._stamp = time.monotonic()
+            self._frame_count += 1
+            self._last_error = None
+            self._event.set()
+
+    def fail(self, error):
+        with self._lock:
+            self._last_error = str(error)
+
+    def latest(self):
+        with self._lock:
+            return self._jpeg, self._stamp, self._frame_count, self._last_error
+
+    def wait(self, timeout):
+        self._event.wait(timeout)
+        self._event.clear()
+
+    def snapshot(self, now_monotonic):
+        with self._lock:
+            age = None if self._stamp is None else max(0.0, now_monotonic - self._stamp)
+            return {
+                "key": self.key,
+                "label": self.label,
+                "topic": self.topic,
+                "available": self._jpeg is not None,
+                "age_s": age,
+                "frame_count": self._frame_count,
+                "last_error": self._last_error,
+                "stream_url": f"/stream/{self.key}",
+                "snapshot_url": f"/frame/{self.key}.jpg",
+            }
+
+
+def image_to_bgr(msg):
+    encoding = str(msg.encoding or "").lower()
+    channels = max(1, int(msg.step / msg.width)) if msg.width else 1
+
+    if encoding in ("rgb8", "bgr8"):
+        image = np.frombuffer(msg.data, dtype=np.uint8).reshape((msg.height, msg.width, 3))
+        if encoding == "rgb8":
+            return cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        return image.copy()
+
+    if encoding in ("mono8", "8uc1"):
+        image = np.frombuffer(msg.data, dtype=np.uint8).reshape((msg.height, msg.width))
+        return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+    if encoding in ("16uc1", "mono16"):
+        image = np.frombuffer(msg.data, dtype=np.uint16).reshape((msg.height, msg.width))
+        valid = image[image > 0]
+        if valid.size:
+            near = np.percentile(valid, 5)
+            far = np.percentile(valid, 95)
+            if far <= near:
+                far = near + 1.0
+            scaled = np.clip((image.astype(np.float32) - near) * 255.0 / (far - near), 0, 255)
+        else:
+            scaled = np.zeros_like(image, dtype=np.float32)
+        depth_u8 = scaled.astype(np.uint8)
+        return cv2.applyColorMap(depth_u8, cv2.COLORMAP_TURBO)
+
+    if encoding in ("yuv422", "yuyv", "yuv422_yuy2"):
+        image = np.frombuffer(msg.data, dtype=np.uint8).reshape((msg.height, msg.width, 2))
+        return cv2.cvtColor(image, cv2.COLOR_YUV2BGR_YUY2)
+
+    if channels >= 3:
+        image = np.frombuffer(msg.data, dtype=np.uint8).reshape((msg.height, msg.width, channels))
+        return image[:, :, :3].copy()
+
+    image = np.frombuffer(msg.data, dtype=np.uint8).reshape((msg.height, msg.width))
+    return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+
 class PlatooningTabletMonitor(Node):
     def __init__(self):
         super().__init__("platooning_tablet_monitor")
@@ -121,7 +213,7 @@ class PlatooningTabletMonitor(Node):
         self.declare_parameter("port", 8080)
         self.declare_parameter("simulation_domain_id", 25)
         self.declare_parameter("follower_domain_id", 73)
-        self.declare_parameter("target_spacing_m", 0.45)
+        self.declare_parameter("target_spacing_m", 0.47)
         self.declare_parameter("heartbeat_timeout_s", 1.5)
         self.declare_parameter("follower_timeout_s", 2.0)
         self.declare_parameter("web_root", "")
@@ -148,12 +240,19 @@ class PlatooningTabletMonitor(Node):
         self.declare_parameter("follower_target_visible_topic", "/follower/target_visible")
         self.declare_parameter("follower_target_distance_topic", "/follower/target_distance")
         self.declare_parameter("follower_target_offset_x_topic", "/follower/target_offset_x")
+        self.declare_parameter("enable_video_streams", True)
+        self.declare_parameter("video_jpeg_quality", 75)
+        self.declare_parameter("leader_debug_image_topic", "/hybrid_csrt_ibvs/debug_image")
+        self.declare_parameter("eef_debug_image_topic", "/eef_hybrid_csrt_ibvs/debug_image")
+        self.declare_parameter("leader_raw_image_topic", "/camera/color/image_raw")
+        self.declare_parameter("eef_raw_image_topic", "/eef_camera/image_raw")
 
         self._lock = Lock()
         self._values = {}
         self._cargo_items = OrderedDict()
         self._cargo_events = []
         self._last_cargo_event = None
+        self._video_buffers = {}
         self._server = None
         self._server_thread = None
 
@@ -296,6 +395,8 @@ class PlatooningTabletMonitor(Node):
             lambda msg: self._set_value("follower_target_offset_x", finite_float(msg.data)),
             live_qos,
         )
+        if bool(self.get_parameter("enable_video_streams").value):
+            self._create_video_subscriptions(live_qos)
 
         self._start_http_server()
 
@@ -311,6 +412,46 @@ class PlatooningTabletMonitor(Node):
                 "value": value,
                 "stamp": time.monotonic(),
             }
+
+    def _create_video_subscriptions(self, qos):
+        stream_specs = (
+            ("leader_debug", "작업 인식", self._str_param("leader_debug_image_topic")),
+            ("eef_debug", "그리퍼 근접", self._str_param("eef_debug_image_topic")),
+            ("leader_raw", "전방 원본", self._str_param("leader_raw_image_topic")),
+            ("eef_raw", "EEF 원본", self._str_param("eef_raw_image_topic")),
+        )
+        for key, label, topic in stream_specs:
+            if not topic:
+                continue
+            buffer = VideoStreamBuffer(key, label, topic)
+            self._video_buffers[key] = buffer
+            self.create_subscription(
+                Image,
+                topic,
+                lambda msg, stream_key=key: self._image_callback(stream_key, msg),
+                qos,
+            )
+        self.get_logger().info(
+            "video streams enabled: " +
+            ", ".join(f"{key}={buffer.topic}" for key, buffer in self._video_buffers.items())
+        )
+
+    def _image_callback(self, key, msg):
+        buffer = self._video_buffers.get(key)
+        if buffer is None:
+            return
+        try:
+            frame = image_to_bgr(msg)
+            ok, encoded = cv2.imencode(
+                ".jpg",
+                frame,
+                [int(cv2.IMWRITE_JPEG_QUALITY), int(self.get_parameter("video_jpeg_quality").value)],
+            )
+            if not ok:
+                raise RuntimeError("jpeg encode failed")
+            buffer.update(encoded.tobytes())
+        except Exception as exc:  # noqa: BLE001 - keep stream fault isolated from ROS callbacks.
+            buffer.fail(exc)
 
     def _twist_payload(self, twist):
         linear_x = finite_float(twist.linear.x)
@@ -598,6 +739,10 @@ class PlatooningTabletMonitor(Node):
                 key: self._age(values, key, now_monotonic)
                 for key in sorted(values.keys())
             },
+            "video": {
+                key: buffer.snapshot(now_monotonic)
+                for key, buffer in self._video_buffers.items()
+            },
         }
 
     def _start_http_server(self):
@@ -646,6 +791,14 @@ class PlatooningTabletMonitor(Node):
                         "ros_domain_id": os.environ.get("ROS_DOMAIN_ID", ""),
                     })
                     return
+                if parsed.path.startswith("/frame/") and parsed.path.endswith(".jpg"):
+                    key = parsed.path[len("/frame/"):-len(".jpg")]
+                    self._send_video_frame(key)
+                    return
+                if parsed.path.startswith("/stream/"):
+                    key = parsed.path[len("/stream/"):]
+                    self._send_mjpeg_stream(key)
+                    return
                 self._send_static(parsed.path)
 
             def log_message(self, fmt, *args):
@@ -659,6 +812,53 @@ class PlatooningTabletMonitor(Node):
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
+
+            def _send_video_frame(self, key):
+                buffer = node._video_buffers.get(key)
+                if buffer is None:
+                    self.send_error(404)
+                    return
+                body, _, _, _ = buffer.latest()
+                if body is None:
+                    self.send_error(503)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _send_mjpeg_stream(self, key):
+                buffer = node._video_buffers.get(key)
+                if buffer is None:
+                    self.send_error(404)
+                    return
+
+                self.send_response(200)
+                self.send_header("Age", "0")
+                self.send_header("Cache-Control", "no-cache, private")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+                self.end_headers()
+
+                last_frame_count = -1
+                while True:
+                    frame, _, frame_count, _ = buffer.latest()
+                    if frame is None or frame_count == last_frame_count:
+                        buffer.wait(0.25)
+                        frame, _, frame_count, _ = buffer.latest()
+                    if frame is None:
+                        continue
+                    last_frame_count = frame_count
+                    try:
+                        self.wfile.write(b"--frame\r\n")
+                        self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                        self.wfile.write(f"Content-Length: {len(frame)}\r\n\r\n".encode("ascii"))
+                        self.wfile.write(frame)
+                        self.wfile.write(b"\r\n")
+                    except (BrokenPipeError, ConnectionResetError):
+                        return
 
             def _send_static(self, request_path):
                 if request_path in ("", "/"):
