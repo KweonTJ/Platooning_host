@@ -88,3 +88,31 @@ topics:
       reliability: reliable
       durability: transient_local
       depth: 1
+
+  hybrid_csrt_ibvs/debug_image:
+    type: sensor_msgs/msg/Image
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 2
+
+  camera/color/image_raw:
+    type: sensor_msgs/msg/Image
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 2
+
+  camera/depth/image_raw:
+    type: sensor_msgs/msg/Image
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 2
+
+  eef_camera/image_raw:
+    type: sensor_msgs/msg/Image
+    qos:
+      reliability: best_effort
+      durability: volatile
+      depth: 2

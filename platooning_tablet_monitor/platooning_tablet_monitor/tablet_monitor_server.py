@@ -243,7 +243,7 @@ class PlatooningTabletMonitor(Node):
         self.declare_parameter("enable_video_streams", True)
         self.declare_parameter("video_jpeg_quality", 75)
         self.declare_parameter("leader_debug_image_topic", "/hybrid_csrt_ibvs/debug_image")
-        self.declare_parameter("eef_debug_image_topic", "/eef_hybrid_csrt_ibvs/debug_image")
+        self.declare_parameter("eef_debug_image_topic", "/eef_camera/image_raw")
         self.declare_parameter("leader_raw_image_topic", "/camera/color/image_raw")
         self.declare_parameter("eef_raw_image_topic", "/eef_camera/image_raw")
 
