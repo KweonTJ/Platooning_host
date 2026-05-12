@@ -64,3 +64,8 @@ http://<host-pc-ip>:8080
 ```text
 http://localhost:8080
 ```
+
+## 추가 문서
+
+- [라즈베리파이 모니터링 서버 전달 자료](docs/raspberry_pi_server_handoff.pdf)
+- [라즈베리파이 모니터링 서버 전달 자료 HTML 원본](docs/raspberry_pi_server_handoff.html)

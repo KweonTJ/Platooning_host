@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>라즈베리파이 모니터링 서버 전달 자료</title>
+<style>
+@page { size: A4; margin: 14mm 13mm; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Noto Sans CJK KR", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+  color: #172033;
+  background: #fff;
+  font-size: 10.2pt;
+  line-height: 1.45;
+}
+h1 { font-size: 22pt; margin: 0 0 4mm; letter-spacing: -0.02em; }
+h2 { font-size: 13.2pt; margin: 6mm 0 2.4mm; padding-bottom: 1mm; border-bottom: 1px solid #cbd5e1; }
+h3 { font-size: 10.8pt; margin: 4mm 0 1.2mm; }
+p { margin: 1.5mm 0; }
+ul, ol { margin: 1.2mm 0 2.4mm 5mm; padding: 0; }
+li { margin: 0.7mm 0; }
+code { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: 8.8pt; background: #f1f5f9; padding: 0.2mm 0.8mm; border-radius: 2mm; }
+pre { margin: 1.5mm 0 2.5mm; padding: 2.5mm; background: #0f172a; color: #e2e8f0; border-radius: 2mm; font-size: 8.2pt; line-height: 1.35; white-space: pre-wrap; }
+table { border-collapse: collapse; width: 100%; margin: 2mm 0 3mm; font-size: 9.2pt; }
+th, td { border: 1px solid #cbd5e1; padding: 1.8mm 2mm; vertical-align: top; }
+th { background: #eaf4ff; color: #0f355f; }
+.cover {
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 48%, #fef3c7 100%);
+  padding: 7mm;
+  border-radius: 4mm;
+  margin-bottom: 5mm;
+}
+.meta { color: #475569; font-size: 9.5pt; }
+.callout { border-left: 4px solid #0ea5e9; background: #f0f9ff; padding: 2.5mm 3mm; margin: 2.5mm 0; }
+.warn { border-left-color: #f59e0b; background: #fffbeb; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+.badge { display: inline-block; padding: 0.6mm 1.8mm; border-radius: 999px; background: #e0f2fe; color: #075985; font-size: 8.4pt; font-weight: 700; }
+.small { font-size: 8.8pt; color: #475569; }
+.page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+<section class="cover">
+  <p class="badge">Platooning Host Workspace</p>
+  <h1>라즈베리파이 모니터링 서버 전달 자료</h1>
+  <p>플래투닝 시스템의 상태/영상 모니터를 라즈베리파이 서버에서 실행하기 위해 전달해야 하는 파일, 네트워크 전제, 실행 절차를 정리한 문서이다.</p>
+  <p class="meta">작성 기준: 2026-05-12 21:55 · 대상 워크스페이스: <code>~/platooning_host_ws</code> · 현재 도메인: Host 16 / Leader 25 / Follower 73</p>
+</section>
+
+<h2>1. 목적과 전제</h2>
+<ul>
+  <li>라즈베리파이는 태블릿/PC 브라우저가 접속하는 모니터링 서버 역할을 한다.</li>
+  <li>현재 <code>platooning_tablet_monitor</code>는 ROS 2 토픽을 직접 구독하는 웹 서버이다. 같은 LAN 또는 VPN 안에서는 바로 사용할 수 있다.</li>
+  <li>터틀봇과 사용자가 서로 다른 네트워크에 있을 경우 ROS DDS를 공인망에 직접 노출하지 않는다. 로봇 쪽에서 서버로 상태/영상 데이터를 업로드하는 클라이언트가 추가로 필요하다.</li>
+  <li>라즈베리파이 서버는 상태 API와 웹 페이지를 제공하고, 추후 영상은 WebRTC/RTSP/SRT 또는 WebSocket/MJPEG 방식 중 하나로 확장한다.</li>
+</ul>
+<div class="callout warn"><b>중요:</b> 외부 네트워크 환경에서는 포트만 열어 ROS 2 discovery를 통과시키는 방식보다 VPN 또는 애플리케이션 계층 업로드 방식이 안전하고 안정적이다.</div>
+
+<h2>2. 라즈베리파이에 전달할 저장소/파일</h2>
+<table>
+<thead><tr><th>구분</th><th>전달 항목</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td>필수</td><td><code>https://github.com/KweonTJ/Platooning_host.git</code></td><td>호스트 브릿지, 태블릿 모니터, 이 문서가 들어가는 기준 저장소</td></tr>
+<tr><td>필수</td><td><code>platooning_tablet_monitor</code></td><td>웹 대시보드 서버, 상태 카드, 카메라 프레임 표시</td></tr>
+<tr><td>필수</td><td><code>platooning_bridge_config</code></td><td>같은 네트워크/VPN에서 리더/팔로워 도메인을 호스트 도메인으로 연결</td></tr>
+<tr><td>필수</td><td><code>README.md</code>, <code>REAL_ROBOT_DEPLOYMENT.md</code></td><td>현재 실제 로봇 실행 순서와 도메인 기준</td></tr>
+<tr><td>권장</td><td><code>.env</code> 또는 서버 설정 파일</td><td>서버 IP/도메인, 포트, ROS 도메인, 영상 품질을 한 곳에서 관리</td></tr>
+<tr><td>추가 구현</td><td><code>robot_status_uploader</code>, <code>robot_video_streamer</code></td><td>서로 다른 네트워크에서 리더/팔로워가 라즈베리파이로 직접 상태/영상을 보내는 클라이언트</td></tr>
+</tbody>
+</table>
+
+<h2>3. 권장 하드웨어 및 OS</h2>
+<div class="grid2">
+<div>
+<h3>라즈베리파이</h3>
+<ul>
+  <li>권장: Raspberry Pi 5 또는 Raspberry Pi 4 8GB</li>
+  <li>저장장치: microSD보다 SSD 부팅 권장</li>
+  <li>전원: 정격 어댑터 사용</li>
+  <li>네트워크: 가능하면 유선 LAN 사용</li>
+</ul>
+</div>
+<div>
+<h3>운영체제/ROS</h3>
+<ul>
+  <li>Ubuntu 22.04 64-bit</li>
+  <li>ROS 2 Humble</li>
+  <li>Python 3, OpenCV, cv_bridge</li>
+  <li>원격 접속용 SSH 활성화</li>
+</ul>
+</div>
+</div>
+
+<h2>4. 설치 패키지</h2>
+<pre>sudo apt update
+sudo apt install -y   git python3-pip python3-opencv python3-numpy   ros-humble-ros-base ros-humble-cv-bridge   ros-humble-image-transport ros-humble-rmw-cyclonedds-cpp</pre>
+<p>외부 네트워크 서버까지 고려할 경우 아래 중 필요한 것을 추가한다.</p>
+<pre>sudo apt install -y nginx certbot mosquitto
+# VPN 방식이면 Tailscale 또는 WireGuard를 별도 설치</pre>
+
+<h2>5. 현재 모니터링 토픽</h2>
+<table>
+<thead><tr><th>영역</th><th>토픽</th></tr></thead>
+<tbody>
+<tr><td>리더 상태</td><td><code>/leader/task_state</code>, <code>/leader/cargo_state</code>, <code>/leader/follower_enable</code>, <code>/leader/platoon_mode</code>, <code>/leader/heartbeat</code>, <code>/leader/cmd_vel</code>, <code>/leader/odom</code>, <code>/leader/battery_state</code></td></tr>
+<tr><td>작업/파지</td><td><code>/mp_control/status</code>, <code>/mp_control/pick_place_status</code>, <code>/cargo/events</code>, <code>/cargo/current_id</code></td></tr>
+<tr><td>팔로워 상태</td><td><code>/follower/status</code>, <code>/follower/safety_state</code>, <code>/follower/cmd_vel</code>, <code>/follower/odom</code>, <code>/follower/battery_state</code>, <code>/follower/distance_error</code>, <code>/follower/target_visible</code>, <code>/follower/target_distance</code>, <code>/follower/target_offset_x</code></td></tr>
+<tr><td>영상</td><td><code>/hybrid_csrt_ibvs/debug_image</code>, <code>/camera/color/image_raw</code>, <code>/camera/depth/image_raw</code>, <code>/eef_camera/image_raw</code>, <code>/eef_hybrid_csrt_ibvs/debug_image</code>, <code>/follower/camera/image_raw</code></td></tr>
+</tbody>
+</table>
+
+<div class="page-break"></div>
+<h2>6. 같은 네트워크 또는 VPN에서 실행</h2>
+<h3>워크스페이스 설치</h3>
+<pre>mkdir -p ~/platooning_host_ws/src
+cd ~/platooning_host_ws/src
+git clone https://github.com/KweonTJ/Platooning_host.git .
+
+cd ~/platooning_host_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install</pre>
+<h3>브릿지 실행</h3>
+<pre>export ROS_LOCALHOST_ONLY=0
+source /opt/ros/humble/setup.bash
+source ~/platooning_host_ws/install/setup.bash
+ros2 launch platooning_bridge_config bridge.launch.py</pre>
+<h3>웹 모니터 실행</h3>
+<pre>export ROS_DOMAIN_ID=16
+export ROS_LOCALHOST_ONLY=0
+source /opt/ros/humble/setup.bash
+source ~/platooning_host_ws/install/setup.bash
+ros2 launch platooning_tablet_monitor tablet_monitor.launch.py host:=0.0.0.0 port:=8080</pre>
+<p>태블릿 또는 모니터링 PC에서 접속:</p>
+<pre>http://&lt;raspberry-pi-ip&gt;:8080</pre>
+
+<h2>7. 서로 다른 네트워크에서 실행할 때의 구조</h2>
+<table>
+<thead><tr><th>구성</th><th>권장 방식</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td>상태 데이터</td><td>로봇 -> 라즈베리파이로 MQTT 또는 WebSocket 업로드</td><td>로봇이 outbound 연결을 만들면 NAT 환경에서도 안정적</td></tr>
+<tr><td>영상 데이터</td><td>WebRTC, RTSP, SRT, 또는 저해상도 MJPEG</td><td>실시간성은 WebRTC, 구현 단순성은 MJPEG가 유리</td></tr>
+<tr><td>보안</td><td>VPN, HTTPS reverse proxy, 인증 토큰</td><td>ROS DDS 포트를 직접 공인망에 노출하지 않음</td></tr>
+<tr><td>저장</td><td>상태 로그 CSV/SQLite, 필요 시 영상 녹화</td><td>논문 실험 기록 재현용</td></tr>
+</tbody>
+</table>
+<div class="callout"><b>현재 추가로 만들어야 할 것:</b> 리더/팔로워 로봇에서 라즈베리파이 서버로 상태와 영상을 보내는 업로더 노드. 현재 호스트 웹 서버는 ROS 2 구독 기반이므로, 원격망에서는 이 업로더가 있어야 한다.</div>
+
+<h2>8. 전달 체크리스트</h2>
+<ul>
+  <li>GitHub 저장소 URL과 브랜치: <code>KweonTJ/Platooning_host</code>, <code>main</code></li>
+  <li>라즈베리파이 SSH 계정, IP 주소 또는 도메인</li>
+  <li>네트워크 방식: 같은 LAN / VPN / 공인 서버 중 하나</li>
+  <li>현재 ROS 도메인: Host <code>16</code>, Leader <code>25</code>, Follower <code>73</code></li>
+  <li>웹 포트: 기본 <code>8080</code>, 외부 공개 시 <code>443</code> reverse proxy 권장</li>
+  <li>영상 스트림 개수: 현재 모니터 기준 최대 6개</li>
+  <li>영상 품질 기준: 테스트는 640x480 저FPS부터 시작</li>
+  <li>로그 저장 여부: 실험 검증용이면 상태 로그와 주요 이벤트 시간 저장 권장</li>
+</ul>
+
+<h2>9. 동작 확인 명령</h2>
+<pre># 서버 접속 확인
+curl http://127.0.0.1:8080/api/status
+
+# ROS 토픽이 들어오는지 확인
+export ROS_DOMAIN_ID=16
+ros2 topic list
+ros2 topic echo /leader/task_state --once
+ros2 topic echo /follower/status --once
+
+# 영상 토픽 확인
+ros2 topic hz /camera/color/image_raw
+ros2 topic hz /eef_camera/image_raw</pre>
+
+<h2>10. 현재 한계와 다음 작업</h2>
+<ul>
+  <li>같은 LAN/VPN이면 현재 호스트 워크스페이스만으로 모니터 실행 가능하다.</li>
+  <li>타 네트워크에서는 라즈베리파이에 접속할 웹 서버만으로는 부족하며, 로봇 쪽 업로더/영상 송출 노드가 필요하다.</li>
+  <li>실험 기록용으로는 상태 토픽, 파지 이벤트, 거리 오차, 영상 프레임 수신 시간을 서버에 저장하는 기능을 추가하는 것이 좋다.</li>
+  <li>외부 공개 시 HTTPS, 인증, 방화벽 정책을 먼저 정한다.</li>
+</ul>
+</body>
+</html>
