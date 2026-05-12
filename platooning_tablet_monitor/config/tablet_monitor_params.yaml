@@ -4,7 +4,7 @@ platooning_tablet_monitor:
     port: 8080
     simulation_domain_id: 25
     follower_domain_id: 73
-    target_spacing_m: 0.47
+    target_spacing_m: 0.45
     heartbeat_timeout_s: 1.5
     follower_timeout_s: 2.0
     web_root: ""
