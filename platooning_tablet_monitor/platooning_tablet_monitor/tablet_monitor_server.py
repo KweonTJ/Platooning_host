@@ -245,7 +245,9 @@ class PlatooningTabletMonitor(Node):
         self.declare_parameter("leader_debug_image_topic", "/hybrid_csrt_ibvs/debug_image")
         self.declare_parameter("eef_debug_image_topic", "/eef_camera/image_raw")
         self.declare_parameter("leader_raw_image_topic", "/camera/color/image_raw")
+        self.declare_parameter("leader_depth_image_topic", "/camera/depth/image_raw")
         self.declare_parameter("eef_raw_image_topic", "/eef_camera/image_raw")
+        self.declare_parameter("follower_raw_image_topic", "/follower/camera/image_raw")
 
         self._lock = Lock()
         self._values = {}
@@ -418,7 +420,9 @@ class PlatooningTabletMonitor(Node):
             ("leader_debug", "작업 인식", self._str_param("leader_debug_image_topic")),
             ("eef_debug", "그리퍼 근접", self._str_param("eef_debug_image_topic")),
             ("leader_raw", "전방 원본", self._str_param("leader_raw_image_topic")),
+            ("leader_depth", "전방 Depth", self._str_param("leader_depth_image_topic")),
             ("eef_raw", "EEF 원본", self._str_param("eef_raw_image_topic")),
+            ("follower_raw", "팔로워 원본", self._str_param("follower_raw_image_topic")),
         )
         for key, label, topic in stream_specs:
             if not topic:

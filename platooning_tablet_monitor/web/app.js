@@ -297,7 +297,9 @@ function summarizeVideo(video) {
     getObject(video.leader_debug),
     getObject(video.eef_debug),
     getObject(video.leader_raw),
+    getObject(video.leader_depth),
     getObject(video.eef_raw),
+    getObject(video.follower_raw),
   ];
   const live = streams.filter((stream) => {
     const age = numberValue(stream.age_s);
@@ -308,15 +310,15 @@ function summarizeVideo(video) {
     const age = numberValue(stream.age_s);
     return stream.available === true && age !== null && age < 2.5;
   }).length;
-  const rawLive = [video.leader_raw, video.eef_raw].filter((stream) => {
+  const rawLive = [video.leader_raw, video.leader_depth, video.eef_raw, video.follower_raw].filter((stream) => {
     stream = getObject(stream);
     const age = numberValue(stream.age_s);
     return stream.available === true && age !== null && age < 2.5;
   }).length;
 
   return {
-    label: live === 4 ? "OK" : live > 0 ? `${live}/4` : "No Frame",
-    meta: `debug ${debugLive}/2 · raw ${rawLive}/2`,
+    label: live === 6 ? "OK" : live > 0 ? `${live}/6` : "No Frame",
+    meta: `debug ${debugLive}/2 · raw ${rawLive}/4`,
   };
 }
 
@@ -501,10 +503,20 @@ function update(data) {
     topic: "leaderRawTopic",
     overlay: "leaderRawOverlay",
   });
+  updateVideo(video, "leader_depth", {
+    state: "leaderDepthVideoState",
+    topic: "leaderDepthTopic",
+    overlay: "leaderDepthOverlay",
+  });
   updateVideo(video, "eef_raw", {
     state: "eefRawVideoState",
     topic: "eefRawTopic",
     overlay: "eefRawOverlay",
+  });
+  updateVideo(video, "follower_raw", {
+    state: "followerRawVideoState",
+    topic: "followerRawTopic",
+    overlay: "followerRawOverlay",
   });
 
   setPill(

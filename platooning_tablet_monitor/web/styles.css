@@ -17,7 +17,7 @@
   --violet: #8f73ff;
   --coral: #dc2626;
   --peach: #ffc4ad;
-  --side-column: clamp(420px, 25vw, 540px);
+  --side-column: clamp(380px, 22vw, 500px);
 }
 
 * {
@@ -268,7 +268,7 @@ h2 {
 
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 6px;
   min-width: 0;
@@ -657,6 +657,11 @@ h2 {
     grid-template-rows: minmax(0, 1fr) minmax(260px, 0.5fr);
   }
 
+  .video-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+  }
+
   .side-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: auto;
@@ -673,6 +678,7 @@ h2 {
 
   .overview,
   .status-row,
+  .video-grid,
   .side-stack,
   .raw-strip,
   .health-strip,

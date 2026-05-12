@@ -150,6 +150,20 @@
 
           <article class="video-panel video-tile">
             <div class="panel-head">
+              <h2>전방 Depth</h2>
+              <span id="leaderDepthVideoState" class="pill neutral">No Frame</span>
+            </div>
+            <div class="video-frame">
+              <img id="leaderDepthVideo" src="/stream/leader_depth" alt="전방 Depth 영상">
+              <div id="leaderDepthOverlay" class="video-overlay">waiting for depth camera</div>
+            </div>
+            <div class="video-meta">
+              <span id="leaderDepthTopic">/camera/depth/image_raw</span>
+            </div>
+          </article>
+
+          <article class="video-panel video-tile">
+            <div class="panel-head">
               <h2>EEF 원본</h2>
               <span id="eefRawVideoState" class="pill neutral">No Frame</span>
             </div>
@@ -159,6 +173,20 @@
             </div>
             <div class="video-meta">
               <span id="eefRawTopic">/eef_camera/image_raw</span>
+            </div>
+          </article>
+
+          <article class="video-panel video-tile">
+            <div class="panel-head">
+              <h2>팔로워 원본</h2>
+              <span id="followerRawVideoState" class="pill neutral">No Frame</span>
+            </div>
+            <div class="video-frame">
+              <img id="followerRawVideo" src="/stream/follower_raw" alt="팔로워 원본 영상">
+              <div id="followerRawOverlay" class="video-overlay">waiting for follower camera</div>
+            </div>
+            <div class="video-meta">
+              <span id="followerRawTopic">/follower/camera/image_raw</span>
             </div>
           </article>
         </div>
